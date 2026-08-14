@@ -3,12 +3,13 @@ import numpy as np
 import yfinance as yf
 import streamlit as st
 import plotly.graph_objects as go
+import requests
 
 # ---------------------------------------------------------
 # STREAMLIT PAGE CONFIGURATION
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Grow More | Confluence & Option Chain Scanner",
+    page_title="Grow More | Confluence & Live Option Chain",
     page_icon="🦅",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -86,14 +87,14 @@ st.sidebar.markdown("""
 """, unsafe_allow_html=True)
 
 st.sidebar.header("⚙️ Scanner Controls")
-refresh_btn = st.sidebar.button("🔄 Refresh Market Data", use_container_width=True)
+refresh_btn = st.sidebar.button("🔄 Refresh Live Data", use_container_width=True)
 
 st.sidebar.markdown("---")
 st.sidebar.info("""
-💡 **PCR Interpretation:**
-* **PCR > 1.2:** Extremely Bullish / Support Heavy
-* **PCR 0.8 - 1.2:** Neutral / Range-bound
-* **PCR < 0.8:** Extremely Bearish / Resistance Heavy
+💡 **PCR Guide:**
+* **PCR > 1.2:** Strong Bullish (Support Heavy)
+* **PCR 0.8 - 1.2:** Rangebound / Neutral
+* **PCR < 0.8:** Strong Bearish (Resistance Heavy)
 """)
 
 # ---------------------------------------------------------
@@ -102,13 +103,13 @@ st.sidebar.info("""
 st.markdown("""
     <div class="brand-header">
         <div class="brand-title">🦅 GROW MORE TRADING INSTITUTE</div>
-        <div class="brand-subtitle">Intraday Stock Confluence & Real-Time Index Option Chain Analysis</div>
-        <div class="brand-tag">PRO TRADING TOOL 3.0</div>
+        <div class="brand-subtitle">Intraday Stock Confluence & Live NSE Option Chain Scanner</div>
+        <div class="brand-tag">PRO TRADING TOOL 3.5 (NSE API INTEGRATED)</div>
     </div>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# DATA & SECTOR MAPPING
+# SECTOR MAPPING
 # ---------------------------------------------------------
 SECTOR_MAP = {
     "Nifty Bank": {
@@ -142,7 +143,92 @@ SECTOR_MAP = {
 }
 
 # ---------------------------------------------------------
-# HELPER FUNCTIONS - STOCK & SECTOR
+# DIRECT NSE OPTION CHAIN FETCH ENGINE
+# ---------------------------------------------------------
+@st.cache_data(ttl=30)
+def fetch_nse_live_option_chain(symbol="BANKNIFTY", strike_step=100, num_strikes=8):
+    """
+    Fetches real-time Option Chain directly from NSE India API
+    """
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Referer': 'https://www.nseindia.com/option-chain'
+        }
+        
+        session = requests.Session()
+        # Step 1: Hit base URL to acquire valid cookies
+        session.get("https://www.nseindia.com", headers=headers, timeout=5)
+        
+        # Step 2: Hit Option Chain API
+        url = f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}"
+        response = session.get(url, headers=headers, timeout=5)
+        
+        if response.status_code != 200:
+            return None, 0, 0, 0, pd.DataFrame()
+            
+        json_data = response.json()
+        records = json_data.get("records", {})
+        
+        spot_price = round(float(records.get("underlyingValue", 0)), 2)
+        expiries = records.get("expiryDates", [])
+        
+        if not expiries or spot_price == 0:
+            return None, 0, 0, 0, pd.DataFrame()
+            
+        near_expiry = expiries[0]
+        atm_strike = round(spot_price / strike_step) * strike_step
+        
+        # Target Strikes around ATM
+        target_strikes = [atm_strike + (i * strike_step) for i in range(-num_strikes, num_strikes + 1)]
+        
+        chain_list = []
+        raw_data = records.get("data", [])
+        
+        for row in raw_data:
+            if row.get("expiryDate") == near_expiry and row.get("strikePrice") in target_strikes:
+                strike = row.get("strikePrice")
+                
+                ce_data = row.get("CE", {})
+                pe_data = row.get("PE", {})
+                
+                ce_oi = ce_data.get("openInterest", 0)
+                ce_ltp = ce_data.get("lastPrice", 0)
+                ce_iv = ce_data.get("impliedVolatility", 0)
+                
+                pe_oi = pe_data.get("openInterest", 0)
+                pe_ltp = pe_data.get("lastPrice", 0)
+                pe_iv = pe_data.get("impliedVolatility", 0)
+                
+                chain_list.append({
+                    "Call OI": ce_oi,
+                    "Call LTP": ce_ltp,
+                    "Call IV": ce_iv,
+                    "Strike Price": strike,
+                    "Put LTP": pe_ltp,
+                    "Put OI": pe_oi,
+                    "Put IV": pe_iv
+                })
+                
+        df_chain = pd.DataFrame(chain_list)
+        if df_chain.empty:
+            return near_expiry, spot_price, atm_strike, 0, pd.DataFrame()
+            
+        df_chain = df_chain.sort_values(by="Strike Price").reset_index(drop=True)
+        
+        total_call_oi = df_chain["Call OI"].sum()
+        total_put_oi = df_chain["Put OI"].sum()
+        pcr = round(total_put_oi / total_call_oi, 2) if total_call_oi > 0 else 0.0
+        
+        return near_expiry, spot_price, atm_strike, pcr, df_chain
+
+    except Exception as e:
+        return None, 0, 0, 0, pd.DataFrame()
+
+# ---------------------------------------------------------
+# HELPER FUNCTIONS - STOCK SCANNER
 # ---------------------------------------------------------
 def fetch_data(tickers, interval="5m"):
     try:
@@ -288,64 +374,6 @@ def scan_stocks_advanced(stock_list, nifty_chg):
     return df_res
 
 # ---------------------------------------------------------
-# OPTION CHAIN FETCH ENGINE
-# ---------------------------------------------------------
-@st.cache_data(ttl=60)
-def fetch_option_chain_data(symbol_ticker, strike_step=50, num_strikes=7):
-    try:
-        ticker = yf.Ticker(symbol_ticker)
-        expiries = ticker.options
-        if not expiries:
-            return None, 0, 0, 0, pd.DataFrame()
-
-        near_expiry = expiries[0]
-        opt_chain = ticker.option_chain(near_expiry)
-
-        calls = opt_chain.calls
-        puts = opt_chain.puts
-
-        # Spot Price
-        hist = ticker.history(period="1d")
-        spot_price = float(hist["Close"].iloc[-1])
-
-        atm_strike = round(spot_price / strike_step) * strike_step
-
-        strikes_to_filter = [atm_strike + i * strike_step for i in range(-num_strikes, num_strikes + 1)]
-
-        calls_f = calls[calls["strike"].isin(strikes_to_filter)][["strike", "openInterest", "change", "lastPrice", "impliedVolatility"]]
-        puts_f = puts[puts["strike"].isin(strikes_to_filter)][["strike", "openInterest", "change", "lastPrice", "impliedVolatility"]]
-
-        merged = pd.merge(calls_f, puts_f, on="strike", suffixes=('_Call', '_Put')).fillna(0)
-
-        # Total OI & PCR Calculation
-        total_call_oi = merged["openInterest_Call"].sum()
-        total_put_oi = merged["openInterest_Put"].sum()
-        pcr = round(total_put_oi / total_call_oi, 2) if total_call_oi > 0 else 0.0
-
-        # Renaming Columns for Clean Display
-        merged_display = merged.rename(columns={
-            "openInterest_Call": "Call OI",
-            "lastPrice_Call": "Call LTP",
-            "impliedVolatility_Call": "Call IV",
-            "strike": "Strike Price",
-            "lastPrice_Put": "Put LTP",
-            "openInterest_Put": "Put OI",
-            "impliedVolatility_Put": "Put IV"
-        })
-
-        merged_display["Call IV"] = (merged_display["Call IV"] * 100).round(1)
-        merged_display["Put IV"] = (merged_display["Put IV"] * 100).round(1)
-
-        cols_order = ["Call OI", "Call LTP", "Call IV", "Strike Price", "Put LTP", "Put OI", "Put IV"]
-        merged_display = merged_display[cols_order]
-
-        return near_expiry, round(spot_price, 2), atm_strike, pcr, merged_display
-
-    except Exception:
-        return None, 0, 0, 0, pd.DataFrame()
-
-
-# ---------------------------------------------------------
 # MAIN NAVIGATION TABS
 # ---------------------------------------------------------
 if refresh_btn:
@@ -437,10 +465,10 @@ with main_tab1:
 # TAB 2: NIFTY 50 OPTION CHAIN
 # =========================================================
 with main_tab2:
-    st.markdown("### 🎯 Nifty 50 Real-Time Option Chain & OI Intelligence")
+    st.markdown("### 🎯 Nifty 50 Real-Time NSE Option Chain & OI Intelligence")
     
-    with st.spinner("Fetching Nifty Option Chain Data..."):
-        expiry, spot, atm, pcr, df_chain = fetch_option_chain_data("^NSEI", strike_step=50, num_strikes=8)
+    with st.spinner("Connecting to NSE Engine for Nifty Data..."):
+        expiry, spot, atm, pcr, df_chain = fetch_nse_live_option_chain(symbol="NIFTY", strike_step=50, num_strikes=8)
 
     if not df_chain.empty:
         c1, c2, c3, c4 = st.columns(4)
@@ -448,21 +476,16 @@ with main_tab2:
         c2.metric("ATM Strike", f"₹{atm}")
         c3.metric("Put-Call Ratio (PCR)", f"{pcr}")
 
-        # Sentiment Badge
         if pcr >= 1.2:
-            sentiment = "🚀 BULLISH (Heavy Put Writing)"
-            c4.success(sentiment)
+            c4.success("🚀 BULLISH (Support Heavy)")
         elif pcr <= 0.8:
-            sentiment = "🔻 BEARISH (Heavy Call Writing)"
-            c4.error(sentiment)
+            c4.error("🔻 BEARISH (Resistance Heavy)")
         else:
-            sentiment = "⚡ NEUTRAL / RANGEBOUND"
-            c4.warning(sentiment)
+            c4.warning("⚡ NEUTRAL / RANGEBOUND")
 
         st.markdown(f"**Expiry Date:** `{expiry}`")
         st.markdown("---")
 
-        # Visual Bar Chart for Call vs Put OI
         st.markdown("#### 📊 Open Interest Distribution (Resistance vs Support)")
         fig_nifty = go.Figure()
         fig_nifty.add_trace(go.Bar(x=df_chain["Strike Price"], y=df_chain["Call OI"], name="Call OI (Resistance)", marker_color="#ef4444"))
@@ -478,19 +501,19 @@ with main_tab2:
         )
         st.plotly_chart(fig_nifty, use_container_width=True)
 
-        st.markdown("#### 📋 Live Option Chain Table")
+        st.markdown("#### 📋 Live NSE Option Chain Table")
         st.dataframe(df_chain, hide_index=True, use_container_width=True)
     else:
-        st.info("Nifty Option Chain Data filhal available nahi hai (Market Hours mein check karein).")
+        st.warning("⚠️ NSE Server se connect nahi ho paya ya Market off-hours hai. Sidebar par 'Refresh Live Data' par click karein.")
 
 # =========================================================
 # TAB 3: BANK NIFTY OPTION CHAIN
 # =========================================================
 with main_tab3:
-    st.markdown("### 🏦 Bank Nifty Real-Time Option Chain & OI Intelligence")
+    st.markdown("### 🏦 Bank Nifty Real-Time NSE Option Chain & OI Intelligence")
     
-    with st.spinner("Fetching Bank Nifty Option Chain Data..."):
-        expiry, spot, atm, pcr, df_chain = fetch_option_chain_data("^NSEBANK", strike_step=100, num_strikes=8)
+    with st.spinner("Connecting to NSE Engine for Bank Nifty Data..."):
+        expiry, spot, atm, pcr, df_chain = fetch_nse_live_option_chain(symbol="BANKNIFTY", strike_step=100, num_strikes=8)
 
     if not df_chain.empty:
         c1, c2, c3, c4 = st.columns(4)
@@ -499,14 +522,11 @@ with main_tab3:
         c3.metric("Put-Call Ratio (PCR)", f"{pcr}")
 
         if pcr >= 1.2:
-            sentiment = "🚀 BULLISH (Heavy Put Writing)"
-            c4.success(sentiment)
+            c4.success("🚀 BULLISH (Support Heavy)")
         elif pcr <= 0.8:
-            sentiment = "🔻 BEARISH (Heavy Call Writing)"
-            c4.error(sentiment)
+            c4.error("🔻 BEARISH (Resistance Heavy)")
         else:
-            sentiment = "⚡ NEUTRAL / RANGEBOUND"
-            c4.warning(sentiment)
+            c4.warning("⚡ NEUTRAL / RANGEBOUND")
 
         st.markdown(f"**Expiry Date:** `{expiry}`")
         st.markdown("---")
@@ -526,10 +546,10 @@ with main_tab3:
         )
         st.plotly_chart(fig_bn, use_container_width=True)
 
-        st.markdown("#### 📋 Live Option Chain Table")
+        st.markdown("#### 📋 Live NSE Option Chain Table")
         st.dataframe(df_chain, hide_index=True, use_container_width=True)
     else:
-        st.info("Bank Nifty Option Chain Data filhal available nahi hai (Market Hours mein check karein).")
+        st.warning("⚠️ NSE Server se connect nahi ho paya ya Market off-hours hai. Sidebar par 'Refresh Live Data' par click karein.")
 
 # ---------------------------------------------------------
 # FOOTER BRANDING
