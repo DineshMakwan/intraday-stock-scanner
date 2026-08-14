@@ -4,7 +4,7 @@ import numpy as np
 import yfinance as yf
 import streamlit as st
 import plotly.graph_objects as go
-from nselib import derivativedata
+from curl_cffi import requests
 
 # ---------------------------------------------------------
 # STREAMLIT PAGE CONFIGURATION
@@ -105,7 +105,7 @@ st.markdown("""
     <div class="brand-header">
         <div class="brand-title">🦅 GROW MORE TRADING INSTITUTE</div>
         <div class="brand-subtitle">Intraday Stock Confluence & Live NSE Option Chain Scanner</div>
-        <div class="brand-tag">PRO TRADING TOOL 5.0 (NSELIB STABLE INTEGRATION)</div>
+        <div class="brand-tag">PRO TRADING TOOL 5.0 (AUTO SESSION RECOVERY)</div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -144,61 +144,94 @@ SECTOR_MAP = {
 }
 
 # ---------------------------------------------------------
-# NSE OPTION CHAIN FETCH ENGINE (POWERED BY NSELIB)
+# FAST NSE OPTION CHAIN FETCH ENGINE (DYNAMIC SESSION RECOVER)
 # ---------------------------------------------------------
 @st.cache_data(ttl=30)
 def fetch_nse_live_option_chain(symbol="BANKNIFTY", strike_step=100, num_strikes=8):
     """
-    Robust Option Chain Fetcher via nselib to bypass Akamai 404 block completely
+    Ultra-Robust Option Chain Fetcher with Dynamic Session Reset for NSE Akamai Bypass
     """
     symbol = symbol.upper()
-    try:
-        df_raw = derivativedata.nse_live_option_chain(symbol)
+    base_url = "https://www.nseindia.com"
+    oc_page_url = "https://www.nseindia.com/option-chain"
+    api_url = f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}"
 
-        if df_raw is None or df_raw.empty:
-            st.warning(f"⚠️ NSE Data currently unavailable for {symbol}.")
-            return None, 0, 0, 0, pd.DataFrame()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': oc_page_url,
+    }
 
-        spot_price = float(df_raw['Underlying_Value'].iloc[0])
-        expiries = df_raw['Expiry_Date'].unique().tolist()
+    # Up to 3 retries with complete session recreation if 404 happens
+    for attempt in range(3):
+        try:
+            session = requests.Session(impersonate="chrome120")
+            
+            # Step 1: Warmup Base URL
+            session.get(base_url, headers=headers, timeout=10)
+            time.sleep(0.5)
+            
+            # Step 2: Warmup Option Chain Page to activate token
+            session.get(oc_page_url, headers=headers, timeout=10)
+            time.sleep(0.5)
 
-        if not expiries or spot_price == 0:
-            return None, 0, 0, 0, pd.DataFrame()
+            # Step 3: Fetch Option Chain Data
+            response = session.get(api_url, headers=headers, timeout=10)
 
-        near_expiry = expiries[0]
-        atm_strike = round(spot_price / strike_step) * strike_step
-        target_strikes = [atm_strike + (i * strike_step) for i in range(-num_strikes, num_strikes + 1)]
+            if response.status_code == 200:
+                json_data = response.json()
+                records = json_data.get("records", {})
 
-        df_filtered = df_raw[
-            (df_raw['Expiry_Date'] == near_expiry) & 
-            (df_raw['Strike_Price'].isin(target_strikes))
-        ].copy()
+                spot_price = round(float(records.get("underlyingValue", 0)), 2)
+                expiries = records.get("expiryDates", [])
 
-        chain_list = []
-        for _, row in df_filtered.iterrows():
-            chain_list.append({
-                "Call OI": int(row.get("CALLS_OI", 0)),
-                "Call LTP": float(row.get("CALLS_LTP", 0)),
-                "Call IV": float(row.get("CALLS_IV", 0)),
-                "Strike Price": float(row.get("Strike_Price", 0)),
-                "Put LTP": float(row.get("PUTS_LTP", 0)),
-                "Put OI": int(row.get("PUTS_OI", 0)),
-                "Put IV": float(row.get("PUTS_IV", 0))
-            })
+                if not expiries or spot_price == 0:
+                    st.warning(f"⚠️ NSE API responded, but data is empty for {symbol}.")
+                    return None, 0, 0, 0, pd.DataFrame()
 
-        df_chain = pd.DataFrame(chain_list)
-        if not df_chain.empty:
-            df_chain = df_chain.sort_values(by="Strike Price").reset_index(drop=True)
+                near_expiry = expiries[0]
+                atm_strike = round(spot_price / strike_step) * strike_step
+                target_strikes = [atm_strike + (i * strike_step) for i in range(-num_strikes, num_strikes + 1)]
 
-            total_call_oi = df_chain["Call OI"].sum()
-            total_put_oi = df_chain["Put OI"].sum()
-            pcr = round(total_put_oi / total_call_oi, 2) if total_call_oi > 0 else 0.0
+                chain_list = []
+                raw_data = records.get("data", [])
 
-            return near_expiry, spot_price, atm_strike, pcr, df_chain
+                for row in raw_data:
+                    if row.get("expiryDate") == near_expiry and row.get("strikePrice") in target_strikes:
+                        strike = row.get("strikePrice")
+                        ce_data = row.get("CE", {})
+                        pe_data = row.get("PE", {})
 
-    except Exception as e:
-        st.error(f"⚠️ NSE Engine Error: {str(e)}")
+                        chain_list.append({
+                            "Call OI": ce_data.get("openInterest", 0),
+                            "Call LTP": ce_data.get("lastPrice", 0),
+                            "Call IV": ce_data.get("impliedVolatility", 0),
+                            "Strike Price": strike,
+                            "Put LTP": pe_data.get("lastPrice", 0),
+                            "Put OI": pe_data.get("openInterest", 0),
+                            "Put IV": pe_data.get("impliedVolatility", 0)
+                        })
 
+                df_chain = pd.DataFrame(chain_list)
+                if not df_chain.empty:
+                    df_chain = df_chain.sort_values(by="Strike Price").reset_index(drop=True)
+
+                    total_call_oi = df_chain["Call OI"].sum()
+                    total_put_oi = df_chain["Put OI"].sum()
+                    pcr = round(total_put_oi / total_call_oi, 2) if total_call_oi > 0 else 0.0
+
+                    return near_expiry, spot_price, atm_strike, pcr, df_chain
+
+            elif response.status_code == 404:
+                time.sleep(1)
+                continue  # Retry with fresh session
+
+        except Exception:
+            time.sleep(1)
+            continue
+
+    st.error("⚠️ NSE Server Status: 404 (NSE Server blocked request or Market Closed)")
     return None, 0, 0, 0, pd.DataFrame()
 
 # ---------------------------------------------------------
