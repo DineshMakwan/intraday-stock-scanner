@@ -144,23 +144,23 @@ SECTOR_MAP = {
 }
 
 # ---------------------------------------------------------
-# FAST NSE OPTION CHAIN FETCH ENGINE (CURL-CFFI)
+# FAST NSE OPTION CHAIN FETCH ENGINE (CURL-CFFI WITH 404 FIX)
 # ---------------------------------------------------------
 @st.cache_data(ttl=30)
 def fetch_nse_live_option_chain(symbol="BANKNIFTY", strike_step=100, num_strikes=8):
     """
-    Fetches real-time Option Chain directly using Chrome TLS Fingerprint Impersonation with Debugging
+    Robust Option Chain Fetcher with Cookie Warmup & Automatic Retry to fix 404 Errors
     """
+    symbol = symbol.upper()
     base_url = "https://www.nseindia.com"
     oc_page_url = "https://www.nseindia.com/option-chain"
     api_url = f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}"
 
-    headers = {
+    browser_headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
         'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
     }
 
     api_headers = {
@@ -174,15 +174,23 @@ def fetch_nse_live_option_chain(symbol="BANKNIFTY", strike_step=100, num_strikes
     try:
         session = requests.Session(impersonate="chrome120")
         
-        # Cookie Warmup
-        session.get(base_url, headers=headers, timeout=10)
+        # Step 1: Establish Session & Get Initial Cookies
+        session.get(base_url, headers=browser_headers, timeout=10)
         time.sleep(0.5)
-        session.get(oc_page_url, headers=headers, timeout=10)
+        
+        # Step 2: Hit Option Chain page to activate Session Token
+        session.get(oc_page_url, headers=browser_headers, timeout=10)
         time.sleep(0.5)
 
-        response = session.get(api_url, headers=api_headers, timeout=10)
+        # Step 3: Hit API Endpoint (Retry up to 2 times if 404 occurs)
+        response = None
+        for _ in range(2):
+            response = session.get(api_url, headers=api_headers, timeout=10)
+            if response.status_code == 200:
+                break
+            time.sleep(1)
 
-        if response.status_code == 200:
+        if response and response.status_code == 200:
             json_data = response.json()
             records = json_data.get("records", {})
 
@@ -190,7 +198,7 @@ def fetch_nse_live_option_chain(symbol="BANKNIFTY", strike_step=100, num_strikes
             expiries = records.get("expiryDates", [])
 
             if not expiries or spot_price == 0:
-                st.error(f"⚠️ NSE API responded but no underlying value / expiries found for {symbol}.")
+                st.warning(f"⚠️ NSE API responded, but data is currently unavailable for {symbol}.")
                 return None, 0, 0, 0, pd.DataFrame()
 
             near_expiry = expiries[0]
@@ -227,10 +235,11 @@ def fetch_nse_live_option_chain(symbol="BANKNIFTY", strike_step=100, num_strikes
 
                 return near_expiry, spot_price, atm_strike, pcr, df_chain
         else:
-            st.error(f"⚠️ NSE Server HTTP Status Code: {response.status_code}")
+            status_code = response.status_code if response else "No Response"
+            st.error(f"⚠️ NSE Server HTTP Status Code: {status_code} (Session Cookie Expiration)")
 
     except Exception as e:
-        st.error(f"⚠️ Connection Exception: {str(e)}")
+        st.error(f"⚠️ Connection Error: {str(e)}")
 
     return None, 0, 0, 0, pd.DataFrame()
 
