@@ -149,13 +149,22 @@ SECTOR_MAP = {
 @st.cache_data(ttl=30)
 def fetch_nse_live_option_chain(symbol="BANKNIFTY", strike_step=100, num_strikes=8):
     """
-    Fetches real-time Option Chain directly using Chrome TLS Fingerprint Impersonation
+    Fetches real-time Option Chain directly using Chrome TLS Fingerprint Impersonation with Debugging
     """
     base_url = "https://www.nseindia.com"
     oc_page_url = "https://www.nseindia.com/option-chain"
     api_url = f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}"
 
     headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+    }
+
+    api_headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'Accept': 'application/json, text/javascript, */*; q=0.01',
         'Accept-Language': 'en-US,en;q=0.9',
         'X-Requested-With': 'XMLHttpRequest',
@@ -164,11 +173,14 @@ def fetch_nse_live_option_chain(symbol="BANKNIFTY", strike_step=100, num_strikes
 
     try:
         session = requests.Session(impersonate="chrome120")
-        session.get(base_url, timeout=5)
-        session.get(oc_page_url, timeout=5)
-        time.sleep(0.3)
+        
+        # Cookie Warmup
+        session.get(base_url, headers=headers, timeout=10)
+        time.sleep(0.5)
+        session.get(oc_page_url, headers=headers, timeout=10)
+        time.sleep(0.5)
 
-        response = session.get(api_url, headers=headers, timeout=5)
+        response = session.get(api_url, headers=api_headers, timeout=10)
 
         if response.status_code == 200:
             json_data = response.json()
@@ -178,6 +190,7 @@ def fetch_nse_live_option_chain(symbol="BANKNIFTY", strike_step=100, num_strikes
             expiries = records.get("expiryDates", [])
 
             if not expiries or spot_price == 0:
+                st.error(f"⚠️ NSE API responded but no underlying value / expiries found for {symbol}.")
                 return None, 0, 0, 0, pd.DataFrame()
 
             near_expiry = expiries[0]
@@ -213,9 +226,11 @@ def fetch_nse_live_option_chain(symbol="BANKNIFTY", strike_step=100, num_strikes
                 pcr = round(total_put_oi / total_call_oi, 2) if total_call_oi > 0 else 0.0
 
                 return near_expiry, spot_price, atm_strike, pcr, df_chain
+        else:
+            st.error(f"⚠️ NSE Server HTTP Status Code: {response.status_code}")
 
-    except Exception:
-        pass
+    except Exception as e:
+        st.error(f"⚠️ Connection Exception: {str(e)}")
 
     return None, 0, 0, 0, pd.DataFrame()
 
@@ -495,8 +510,6 @@ with main_tab2:
 
         st.markdown("#### 📋 Live NSE Option Chain Table")
         st.dataframe(df_chain, hide_index=True, use_container_width=True)
-    else:
-        st.warning("⚠️ Data fetch nahi ho paya. Local terminal par `streamlit run app_growmore_pro_v5.py` se run karke test karein.")
 
 # =========================================================
 # TAB 3: BANK NIFTY OPTION CHAIN
@@ -540,8 +553,6 @@ with main_tab3:
 
         st.markdown("#### 📋 Live NSE Option Chain Table")
         st.dataframe(df_chain, hide_index=True, use_container_width=True)
-    else:
-        st.warning("⚠️ Data fetch nahi ho paya. Local terminal par `streamlit run app_growmore_pro_v5.py` se run karke test karein.")
 
 # ---------------------------------------------------------
 # FOOTER BRANDING
