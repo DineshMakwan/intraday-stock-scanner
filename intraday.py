@@ -1,3 +1,4 @@
+import time
 import pandas as pd
 import numpy as np
 import yfinance as yf
@@ -104,7 +105,7 @@ st.markdown("""
     <div class="brand-header">
         <div class="brand-title">🦅 GROW MORE TRADING INSTITUTE</div>
         <div class="brand-subtitle">Intraday Stock Confluence & Live NSE Option Chain Scanner</div>
-        <div class="brand-tag">PRO TRADING TOOL 3.5 (NSE API INTEGRATED)</div>
+        <div class="brand-tag">PRO TRADING TOOL 4.0 (BYPASS ENGINE)</div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -143,89 +144,97 @@ SECTOR_MAP = {
 }
 
 # ---------------------------------------------------------
-# DIRECT NSE OPTION CHAIN FETCH ENGINE
+# ROBUST DIRECT NSE OPTION CHAIN FETCH ENGINE
 # ---------------------------------------------------------
 @st.cache_data(ttl=30)
 def fetch_nse_live_option_chain(symbol="BANKNIFTY", strike_step=100, num_strikes=8):
     """
-    Fetches real-time Option Chain directly from NSE India API
+    Fetches real-time Option Chain directly from NSE India API with Session Warmup
     """
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Referer': 'https://www.nseindia.com/option-chain'
-        }
-        
-        session = requests.Session()
-        # Step 1: Hit base URL to acquire valid cookies
-        session.get("https://www.nseindia.com", headers=headers, timeout=5)
-        
-        # Step 2: Hit Option Chain API
-        url = f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}"
-        response = session.get(url, headers=headers, timeout=5)
-        
-        if response.status_code != 200:
-            return None, 0, 0, 0, pd.DataFrame()
-            
-        json_data = response.json()
-        records = json_data.get("records", {})
-        
-        spot_price = round(float(records.get("underlyingValue", 0)), 2)
-        expiries = records.get("expiryDates", [])
-        
-        if not expiries or spot_price == 0:
-            return None, 0, 0, 0, pd.DataFrame()
-            
-        near_expiry = expiries[0]
-        atm_strike = round(spot_price / strike_step) * strike_step
-        
-        # Target Strikes around ATM
-        target_strikes = [atm_strike + (i * strike_step) for i in range(-num_strikes, num_strikes + 1)]
-        
-        chain_list = []
-        raw_data = records.get("data", [])
-        
-        for row in raw_data:
-            if row.get("expiryDate") == near_expiry and row.get("strikePrice") in target_strikes:
-                strike = row.get("strikePrice")
-                
-                ce_data = row.get("CE", {})
-                pe_data = row.get("PE", {})
-                
-                ce_oi = ce_data.get("openInterest", 0)
-                ce_ltp = ce_data.get("lastPrice", 0)
-                ce_iv = ce_data.get("impliedVolatility", 0)
-                
-                pe_oi = pe_data.get("openInterest", 0)
-                pe_ltp = pe_data.get("lastPrice", 0)
-                pe_iv = pe_data.get("impliedVolatility", 0)
-                
-                chain_list.append({
-                    "Call OI": ce_oi,
-                    "Call LTP": ce_ltp,
-                    "Call IV": ce_iv,
-                    "Strike Price": strike,
-                    "Put LTP": pe_ltp,
-                    "Put OI": pe_oi,
-                    "Put IV": pe_iv
-                })
-                
-        df_chain = pd.DataFrame(chain_list)
-        if df_chain.empty:
-            return near_expiry, spot_price, atm_strike, 0, pd.DataFrame()
-            
-        df_chain = df_chain.sort_values(by="Strike Price").reset_index(drop=True)
-        
-        total_call_oi = df_chain["Call OI"].sum()
-        total_put_oi = df_chain["Put OI"].sum()
-        pcr = round(total_put_oi / total_call_oi, 2) if total_call_oi > 0 else 0.0
-        
-        return near_expiry, spot_price, atm_strike, pcr, df_chain
+    base_url = "https://www.nseindia.com"
+    oc_page_url = "https://www.nseindia.com/option-chain"
+    api_url = f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}"
 
-    except Exception as e:
-        return None, 0, 0, 0, pd.DataFrame()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive'
+    }
+
+    api_headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Referer': oc_page_url,
+        'Connection': 'keep-alive'
+    }
+
+    for attempt in range(2):
+        try:
+            session = requests.Session()
+            session.headers.update(headers)
+
+            # Step 1: Warmup Session & Acquire Cookies
+            session.get(base_url, timeout=6)
+            session.get(oc_page_url, timeout=6)
+            time.sleep(0.5)
+
+            # Step 2: Fetch Option Chain JSON
+            response = session.get(api_url, headers=api_headers, timeout=6)
+
+            if response.status_code == 200:
+                json_data = response.json()
+                records = json_data.get("records", {})
+
+                spot_price = round(float(records.get("underlyingValue", 0)), 2)
+                expiries = records.get("expiryDates", [])
+
+                if not expiries or spot_price == 0:
+                    continue
+
+                near_expiry = expiries[0]
+                atm_strike = round(spot_price / strike_step) * strike_step
+
+                target_strikes = [atm_strike + (i * strike_step) for i in range(-num_strikes, num_strikes + 1)]
+
+                chain_list = []
+                raw_data = records.get("data", [])
+
+                for row in raw_data:
+                    if row.get("expiryDate") == near_expiry and row.get("strikePrice") in target_strikes:
+                        strike = row.get("strikePrice")
+                        ce_data = row.get("CE", {})
+                        pe_data = row.get("PE", {})
+
+                        chain_list.append({
+                            "Call OI": ce_data.get("openInterest", 0),
+                            "Call LTP": ce_data.get("lastPrice", 0),
+                            "Call IV": ce_data.get("impliedVolatility", 0),
+                            "Strike Price": strike,
+                            "Put LTP": pe_data.get("lastPrice", 0),
+                            "Put OI": pe_data.get("openInterest", 0),
+                            "Put IV": pe_data.get("impliedVolatility", 0)
+                        })
+
+                df_chain = pd.DataFrame(chain_list)
+                if not df_chain.empty:
+                    df_chain = df_chain.sort_values(by="Strike Price").reset_index(drop=True)
+
+                    total_call_oi = df_chain["Call OI"].sum()
+                    total_put_oi = df_chain["Put OI"].sum()
+                    pcr = round(total_put_oi / total_call_oi, 2) if total_call_oi > 0 else 0.0
+
+                    return near_expiry, spot_price, atm_strike, pcr, df_chain
+
+        except Exception:
+            time.sleep(1)
+            continue
+
+    return None, 0, 0, 0, pd.DataFrame()
 
 # ---------------------------------------------------------
 # HELPER FUNCTIONS - STOCK SCANNER
@@ -504,7 +513,7 @@ with main_tab2:
         st.markdown("#### 📋 Live NSE Option Chain Table")
         st.dataframe(df_chain, hide_index=True, use_container_width=True)
     else:
-        st.warning("⚠️ NSE Server se connect nahi ho paya ya Market off-hours hai. Sidebar par 'Refresh Live Data' par click karein.")
+        st.warning("⚠️ NSE Server response delay. Please click 'Refresh Live Data' on the sidebar.")
 
 # =========================================================
 # TAB 3: BANK NIFTY OPTION CHAIN
@@ -549,7 +558,7 @@ with main_tab3:
         st.markdown("#### 📋 Live NSE Option Chain Table")
         st.dataframe(df_chain, hide_index=True, use_container_width=True)
     else:
-        st.warning("⚠️ NSE Server se connect nahi ho paya ya Market off-hours hai. Sidebar par 'Refresh Live Data' par click karein.")
+        st.warning("⚠️ NSE Server response delay. Please click 'Refresh Live Data' on the sidebar.")
 
 # ---------------------------------------------------------
 # FOOTER BRANDING
