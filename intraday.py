@@ -17,6 +17,54 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
+# AUTHENTICATION SYSTEM LOGIC
+# ---------------------------------------------------------
+def check_password():
+    """Returns `True` if the user has entered correct credentials."""
+    def password_entered():
+        username = st.session_state.get("auth_username", "").strip()
+        password = st.session_state.get("auth_password", "").strip()
+        
+        # Check credentials against st.secrets
+        if "credentials" in st.secrets and username in st.secrets["credentials"]:
+            if st.secrets["credentials"][username] == password:
+                st.session_state["authenticated"] = True
+                st.session_state["user"] = username
+                del st.session_state["auth_password"]  # Clean up memory
+                del st.session_state["auth_username"]
+                return
+        
+        st.session_state["authenticated"] = False
+
+    # Check if already authenticated
+    if st.session_state.get("authenticated", False):
+        return True
+
+    # Show Login UI
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("""
+            <div style='text-align: center; padding: 20px; background-color: #0f172a; border-radius: 12px; border: 1px solid #312e81;'>
+                <h2 style='color: #6366f1; margin: 0;'>🦅 GROW MORE TRADING</h2>
+                <p style='color: #a5b4fc; font-size: 0.9rem;'>Client Portal Login</p>
+            </div>
+            <br>
+        """, unsafe_allow_html=True)
+        
+        st.text_input("Username / User ID", key="auth_username")
+        st.text_input("Password", type="password", key="auth_password")
+        st.button("🔓 Login to Dashboard", on_click=password_entered, use_container_width=True)
+
+        if "authenticated" in st.session_state and not st.session_state["authenticated"]:
+            st.error("❌ Invalid Username or Password")
+
+    return False
+
+# Stop execution if user is NOT logged in
+if not check_password():
+    st.stop()
+
+# ---------------------------------------------------------
 # CUSTOM BRANDING & DARK THEME CSS
 # ---------------------------------------------------------
 st.markdown("""
@@ -78,15 +126,20 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# SIDEBAR BRANDING & CONTROLS
+# SIDEBAR BRANDING, CONTROLS & LOGOUT
 # ---------------------------------------------------------
-st.sidebar.markdown("""
+st.sidebar.markdown(f"""
     <div class="sidebar-brand">
         <h2 style="color: #6366f1; margin: 0; font-size: 1.4rem; font-weight: 800;">GROW MORE</h2>
-        <p style="color: #9ca3af; margin: 2px 0 0 0; font-size: 0.75rem;">TRADING INSTITUTE</p>
+        <p style="color: #9ca3af; margin: 2px 0 0 0; font-size: 0.75rem;">Welcome, {st.session_state.get('user', 'Trader')}</p>
     </div>
 """, unsafe_allow_html=True)
 
+if st.sidebar.button("🔒 Logout", use_container_width=True):
+    st.session_state["authenticated"] = False
+    st.rerun()
+
+st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Scanner Controls")
 refresh_btn = st.sidebar.button("🔄 Refresh Live Data", use_container_width=True)
 
@@ -148,9 +201,6 @@ SECTOR_MAP = {
 # ---------------------------------------------------------
 @st.cache_data(ttl=30)
 def fetch_nse_live_option_chain(symbol="BANKNIFTY", strike_step=100, num_strikes=8):
-    """
-    Ultra-Robust Option Chain Fetcher with Dynamic Session Reset for NSE Akamai Bypass
-    """
     symbol = symbol.upper()
     base_url = "https://www.nseindia.com"
     oc_page_url = "https://www.nseindia.com/option-chain"
@@ -163,20 +213,14 @@ def fetch_nse_live_option_chain(symbol="BANKNIFTY", strike_step=100, num_strikes
         'Referer': oc_page_url,
     }
 
-    # Up to 3 retries with complete session recreation if 404 happens
     for attempt in range(3):
         try:
             session = requests.Session(impersonate="chrome120")
-            
-            # Step 1: Warmup Base URL
             session.get(base_url, headers=headers, timeout=10)
             time.sleep(0.5)
-            
-            # Step 2: Warmup Option Chain Page to activate token
             session.get(oc_page_url, headers=headers, timeout=10)
             time.sleep(0.5)
 
-            # Step 3: Fetch Option Chain Data
             response = session.get(api_url, headers=headers, timeout=10)
 
             if response.status_code == 200:
@@ -225,7 +269,7 @@ def fetch_nse_live_option_chain(symbol="BANKNIFTY", strike_step=100, num_strikes
 
             elif response.status_code == 404:
                 time.sleep(1)
-                continue  # Retry with fresh session
+                continue
 
         except Exception:
             time.sleep(1)
