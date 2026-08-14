@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 # STREAMLIT PAGE CONFIGURATION
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Grow More | Confluence Scanner",
+    page_title="Grow More | Confluence & Option Chain Scanner",
     page_icon="🦅",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -23,8 +23,6 @@ st.markdown("""
         background-color: #0b0f19; 
         color: #f3f4f6; 
     }
-    
-    /* Branding Header Box */
     .brand-header {
         background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
         padding: 22px 28px;
@@ -36,7 +34,6 @@ st.markdown("""
     .brand-title {
         font-size: 1.8rem;
         font-weight: 800;
-        letter-spacing: 0.5px;
         color: #ffffff;
         margin: 0;
     }
@@ -57,8 +54,6 @@ st.markdown("""
         display: inline-block;
         margin-top: 10px;
     }
-
-    /* Custom Cards */
     .metric-card-bull {
         background: rgba(16, 185, 129, 0.08);
         border: 1px solid rgba(16, 185, 129, 0.3);
@@ -71,8 +66,6 @@ st.markdown("""
         padding: 16px;
         border-radius: 12px;
     }
-
-    /* Sidebar Branding */
     .sidebar-brand {
         text-align: center;
         padding: 10px 0;
@@ -96,7 +89,12 @@ st.sidebar.header("⚙️ Scanner Controls")
 refresh_btn = st.sidebar.button("🔄 Refresh Market Data", use_container_width=True)
 
 st.sidebar.markdown("---")
-st.sidebar.info("💡 **Pro Tip:** Focus on stocks with **Score >= 3.5** where Sector Alignment + Volume Spike + VWAP confirm together.")
+st.sidebar.info("""
+💡 **PCR Interpretation:**
+* **PCR > 1.2:** Extremely Bullish / Support Heavy
+* **PCR 0.8 - 1.2:** Neutral / Range-bound
+* **PCR < 0.8:** Extremely Bearish / Resistance Heavy
+""")
 
 # ---------------------------------------------------------
 # MAIN HEADER BRANDING
@@ -104,13 +102,13 @@ st.sidebar.info("💡 **Pro Tip:** Focus on stocks with **Score >= 3.5** where S
 st.markdown("""
     <div class="brand-header">
         <div class="brand-title">🦅 GROW MORE TRADING INSTITUTE</div>
-        <div class="brand-subtitle">High-Precision Intraday Confluence Scanner (Multi-Factor Analysis)</div>
-        <div class="brand-tag">PRO TRADING TOOL 2.0</div>
+        <div class="brand-subtitle">Intraday Stock Confluence & Real-Time Index Option Chain Analysis</div>
+        <div class="brand-tag">PRO TRADING TOOL 3.0</div>
     </div>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# SECTOR & STOCK MAPPING
+# DATA & SECTOR MAPPING
 # ---------------------------------------------------------
 SECTOR_MAP = {
     "Nifty Bank": {
@@ -144,7 +142,7 @@ SECTOR_MAP = {
 }
 
 # ---------------------------------------------------------
-# HELPER FUNCTIONS
+# HELPER FUNCTIONS - STOCK & SECTOR
 # ---------------------------------------------------------
 def fetch_data(tickers, interval="5m"):
     try:
@@ -206,7 +204,6 @@ def get_sector_momentum():
 
 def scan_stocks_advanced(stock_list, nifty_chg):
     results = []
-    
     data_5m = fetch_data(stock_list, interval="5m")
     data_15m = fetch_data(stock_list, interval="15m")
 
@@ -236,22 +233,18 @@ def scan_stocks_advanced(stock_list, nifty_chg):
             day_open = round(float(df_5m_single["Open"].iloc[0]), 2)
             day_chg = round(((cmp - day_open) / day_open) * 100, 2)
 
-            # 1. VWAP
             vwap_series = calculate_vwap(df_5m_single)
             current_vwap = round(float(vwap_series.iloc[-1]), 2)
             vwap_status = "🟢 Above VWAP" if cmp > current_vwap else "🔴 Below VWAP"
 
-            # 2. Volume Spike
             latest_vol = float(df_5m_single["Volume"].iloc[-1])
             avg_vol_20 = float(df_5m_single["Volume"].tail(20).mean())
             vol_ratio = round(latest_vol / avg_vol_20, 2) if avg_vol_20 > 0 else 1.0
             vol_status = f"🔥 High ({vol_ratio}x)" if vol_ratio >= 1.8 else (f"⚡ Normal ({vol_ratio}x)" if vol_ratio >= 1.0 else "⚪ Low")
 
-            # 3. RS vs Nifty
             rs_diff = round(day_chg - nifty_chg, 2)
             rs_status = f"🟢 Outperform (+{rs_diff}%)" if rs_diff > 0.3 else (f"🔴 Underperform ({rs_diff}%)" if rs_diff < -0.3 else "⚪ Neutral")
 
-            # 4. 15-Min ORB Status
             h15_first = round(float(df_15m_single["High"].iloc[0]), 2)
             l15_first = round(float(df_15m_single["Low"].iloc[0]), 2)
 
@@ -261,7 +254,6 @@ def scan_stocks_advanced(stock_list, nifty_chg):
             elif cmp < l15_first:
                 orb_status = "🔻 15M Low Breakdown"
 
-            # 5. Score Calculation
             score = 0
             if day_chg > 0:
                 if cmp > current_vwap: score += 1
@@ -287,7 +279,6 @@ def scan_stocks_advanced(stock_list, nifty_chg):
                 "Volume Spike": vol_status,
                 "RS vs Nifty": rs_status
             })
-
         except Exception:
             continue
 
@@ -297,112 +288,256 @@ def scan_stocks_advanced(stock_list, nifty_chg):
     return df_res
 
 # ---------------------------------------------------------
-# DASHBOARD BODY
+# OPTION CHAIN FETCH ENGINE
+# ---------------------------------------------------------
+@st.cache_data(ttl=60)
+def fetch_option_chain_data(symbol_ticker, strike_step=50, num_strikes=7):
+    try:
+        ticker = yf.Ticker(symbol_ticker)
+        expiries = ticker.options
+        if not expiries:
+            return None, 0, 0, 0, pd.DataFrame()
+
+        near_expiry = expiries[0]
+        opt_chain = ticker.option_chain(near_expiry)
+
+        calls = opt_chain.calls
+        puts = opt_chain.puts
+
+        # Spot Price
+        hist = ticker.history(period="1d")
+        spot_price = float(hist["Close"].iloc[-1])
+
+        atm_strike = round(spot_price / strike_step) * strike_step
+
+        strikes_to_filter = [atm_strike + i * strike_step for i in range(-num_strikes, num_strikes + 1)]
+
+        calls_f = calls[calls["strike"].isin(strikes_to_filter)][["strike", "openInterest", "change", "lastPrice", "impliedVolatility"]]
+        puts_f = puts[puts["strike"].isin(strikes_to_filter)][["strike", "openInterest", "change", "lastPrice", "impliedVolatility"]]
+
+        merged = pd.merge(calls_f, puts_f, on="strike", suffixes=('_Call', '_Put')).fillna(0)
+
+        # Total OI & PCR Calculation
+        total_call_oi = merged["openInterest_Call"].sum()
+        total_put_oi = merged["openInterest_Put"].sum()
+        pcr = round(total_put_oi / total_call_oi, 2) if total_call_oi > 0 else 0.0
+
+        # Renaming Columns for Clean Display
+        merged_display = merged.rename(columns={
+            "openInterest_Call": "Call OI",
+            "lastPrice_Call": "Call LTP",
+            "impliedVolatility_Call": "Call IV",
+            "strike": "Strike Price",
+            "lastPrice_Put": "Put LTP",
+            "openInterest_Put": "Put OI",
+            "impliedVolatility_Put": "Put IV"
+        })
+
+        merged_display["Call IV"] = (merged_display["Call IV"] * 100).round(1)
+        merged_display["Put IV"] = (merged_display["Put IV"] * 100).round(1)
+
+        cols_order = ["Call OI", "Call LTP", "Call IV", "Strike Price", "Put LTP", "Put OI", "Put IV"]
+        merged_display = merged_display[cols_order]
+
+        return near_expiry, round(spot_price, 2), atm_strike, pcr, merged_display
+
+    except Exception:
+        return None, 0, 0, 0, pd.DataFrame()
+
+
+# ---------------------------------------------------------
+# MAIN NAVIGATION TABS
 # ---------------------------------------------------------
 if refresh_btn:
     st.cache_data.clear()
 
 nifty_chg = get_nifty_change()
 
-col1, col2 = st.columns([2, 1])
-with col1:
-    st.markdown(f"**Nifty 50 Benchmark Trend:** `{'+' if nifty_chg>=0 else ''}{nifty_chg}%`")
+main_tab1, main_tab2, main_tab3 = st.tabs([
+    "📈 Stock Confluence Scanner", 
+    "🎯 NIFTY 50 Option Chain", 
+    "🏦 BANK NIFTY Option Chain"
+])
 
-st.markdown("---")
+# =========================================================
+# TAB 1: STOCK CONFLUENCE SCANNER
+# =========================================================
+with main_tab1:
+    st.markdown("### 📊 Sector Momentum Leaderboard")
+    df_sectors = get_sector_momentum()
 
-# Sector Leaderboard
-st.markdown("### 📊 Sector Momentum Leaderboard")
-df_sectors = get_sector_momentum()
+    if not df_sectors.empty:
+        top_bull_sec = df_sectors.iloc[0]["Sector"]
+        top_bear_sec = df_sectors.iloc[-1]["Sector"]
 
-if not df_sectors.empty:
-    top_bull_sec = df_sectors.iloc[0]["Sector"]
-    top_bear_sec = df_sectors.iloc[-1]["Sector"]
+        col_sec1, col_sec2 = st.columns(2)
+        with col_sec1:
+            st.markdown(f"""
+                <div class="metric-card-bull">
+                    <small style="color:#10b981; font-weight:bold;">🔥 TOP BULLISH SECTOR</small>
+                    <h3 style="margin:4px 0 0 0; color:#ffffff;">{top_bull_sec} (+{df_sectors.iloc[0]['Change (%)']}%)</h3>
+                </div>
+            """, unsafe_allow_html=True)
+        with col_sec2:
+            st.markdown(f"""
+                <div class="metric-card-bear">
+                    <small style="color:#ef4444; font-weight:bold;">🔻 TOP BEARISH SECTOR</small>
+                    <h3 style="margin:4px 0 0 0; color:#ffffff;">{top_bear_sec} ({df_sectors.iloc[-1]['Change (%)']}%)</h3>
+                </div>
+            """, unsafe_allow_html=True)
 
-    col_sec1, col_sec2 = st.columns(2)
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("### 🎯 Confluence Stock Scanner")
 
-    with col_sec1:
-        st.markdown(f"""
-            <div class="metric-card-bull">
-                <small style="color:#10b981; font-weight:bold;">🔥 TOP BULLISH SECTOR</small>
-                <h3 style="margin:4px 0 0 0; color:#ffffff;">{top_bull_sec} (+{df_sectors.iloc[0]['Change (%)']}%)</h3>
-            </div>
-        """, unsafe_allow_html=True)
+    selected_sector = st.selectbox("Select Sector to Scan:", options=list(SECTOR_MAP.keys()), index=0)
+    stocks_to_scan = SECTOR_MAP[selected_sector]["stocks"]
 
-    with col_sec2:
-        st.markdown(f"""
-            <div class="metric-card-bear">
-                <small style="color:#ef4444; font-weight:bold;">🔻 TOP BEARISH SECTOR</small>
-                <h3 style="margin:4px 0 0 0; color:#ffffff;">{top_bear_sec} ({df_sectors.iloc[-1]['Change (%)']}%)</h3>
-            </div>
-        """, unsafe_allow_html=True)
+    with st.spinner(f"Scanning Stocks in {selected_sector}..."):
+        df_stocks = scan_stocks_advanced(stocks_to_scan, nifty_chg)
 
-st.markdown("<br>", unsafe_allow_html=True)
+    if not df_stocks.empty:
+        tab_all, tab_high, tab_bull, tab_bear = st.tabs([
+            "📋 All Stocks", 
+            "⭐ High Confluence (Score 3.5+)", 
+            "🚀 Bullish Setups", 
+            "🔻 Bearish Setups"
+        ])
 
-# Stock Scanner Section
-st.markdown("### 🎯 Confluence Stock Scanner")
+        def display_clean_table(df_show):
+            if df_show.empty:
+                st.info("Iss category mein abhi koi stock fit nahi ho raha hai.")
+                return
 
-selected_sector = st.selectbox("Select Sector to Scan:", options=list(SECTOR_MAP.keys()), index=0)
-stocks_to_scan = SECTOR_MAP[selected_sector]["stocks"]
+            df_display = df_show.copy()
+            df_display["Confluence Score"] = df_display["Confluence Score"].apply(lambda s: f"⭐ {s} / 5.0")
 
-with st.spinner(f"Grow More Engine Scanning {selected_sector}..."):
-    df_stocks = scan_stocks_advanced(stocks_to_scan, nifty_chg)
+            st.dataframe(
+                df_display,
+                column_config={
+                    "Stock": st.column_config.TextColumn("Stock"),
+                    "Confluence Score": st.column_config.TextColumn("Grow More Score"),
+                    "CMP (₹)": st.column_config.NumberColumn("CMP (₹)", format="₹%.2f"),
+                    "VWAP (₹)": st.column_config.NumberColumn("VWAP (₹)", format="₹%.2f"),
+                    "Day Chg (%)": st.column_config.NumberColumn("Day Chg %", format="%.2f%%"),
+                    "VWAP Status": st.column_config.TextColumn("VWAP Signal"),
+                    "15m ORB Status": st.column_config.TextColumn("15m ORB Breakout"),
+                    "Volume Spike": st.column_config.TextColumn("Volume Status"),
+                    "RS vs Nifty": st.column_config.TextColumn("Relative Strength")
+                },
+                hide_index=True,
+                use_container_width=True
+            )
 
-if not df_stocks.empty:
-    tab_all, tab_high, tab_bull, tab_bear = st.tabs([
-        "📋 All Stocks", 
-        "⭐ High Confluence (Score 3.5+)", 
-        "🚀 Bullish Setups", 
-        "🔻 Bearish Setups"
-    ])
+        with tab_all: display_clean_table(df_stocks)
+        with tab_high: display_clean_table(df_stocks[df_stocks["Confluence Score"] >= 3.5])
+        with tab_bull: display_clean_table(df_stocks[df_stocks["Day Chg (%)"] > 0])
+        with tab_bear: display_clean_table(df_stocks[df_stocks["Day Chg (%)"] < 0])
 
-    # DISPLAY FUNCTION USING CLEAN STREAMLIT DATAFRAME FORMATTING
-    def display_clean_table(df_show):
-        if df_show.empty:
-            st.info("Iss category mein abhi koi stock fit nahi ho raha hai.")
-            return
+# =========================================================
+# TAB 2: NIFTY 50 OPTION CHAIN
+# =========================================================
+with main_tab2:
+    st.markdown("### 🎯 Nifty 50 Real-Time Option Chain & OI Intelligence")
+    
+    with st.spinner("Fetching Nifty Option Chain Data..."):
+        expiry, spot, atm, pcr, df_chain = fetch_option_chain_data("^NSEI", strike_step=50, num_strikes=8)
 
-        # Formatting Score column with Stars
-        df_display = df_show.copy()
-        df_display["Confluence Score"] = df_display["Confluence Score"].apply(lambda s: f"⭐ {s} / 5.0")
+    if not df_chain.empty:
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Nifty Spot Price", f"₹{spot}")
+        c2.metric("ATM Strike", f"₹{atm}")
+        c3.metric("Put-Call Ratio (PCR)", f"{pcr}")
 
-        # Configured Streamlit Dataframe display
-        st.dataframe(
-            df_display,
-            column_config={
-                "Stock": st.column_config.TextColumn("Stock", help="Stock Ticker Symbol"),
-                "Confluence Score": st.column_config.TextColumn("Grow More Score", help="0 to 5 Confluence Rating"),
-                "CMP (₹)": st.column_config.NumberColumn("CMP (₹)", format="₹%.2f"),
-                "VWAP (₹)": st.column_config.NumberColumn("VWAP (₹)", format="₹%.2f"),
-                "Day Chg (%)": st.column_config.NumberColumn("Day Chg %", format="%.2f%%"),
-                "VWAP Status": st.column_config.TextColumn("VWAP Signal"),
-                "15m ORB Status": st.column_config.TextColumn("15m ORB Breakout"),
-                "Volume Spike": st.column_config.TextColumn("Volume Status"),
-                "RS vs Nifty": st.column_config.TextColumn("Relative Strength")
-            },
-            hide_index=True,
-            use_container_width=True
+        # Sentiment Badge
+        if pcr >= 1.2:
+            sentiment = "🚀 BULLISH (Heavy Put Writing)"
+            c4.success(sentiment)
+        elif pcr <= 0.8:
+            sentiment = "🔻 BEARISH (Heavy Call Writing)"
+            c4.error(sentiment)
+        else:
+            sentiment = "⚡ NEUTRAL / RANGEBOUND"
+            c4.warning(sentiment)
+
+        st.markdown(f"**Expiry Date:** `{expiry}`")
+        st.markdown("---")
+
+        # Visual Bar Chart for Call vs Put OI
+        st.markdown("#### 📊 Open Interest Distribution (Resistance vs Support)")
+        fig_nifty = go.Figure()
+        fig_nifty.add_trace(go.Bar(x=df_chain["Strike Price"], y=df_chain["Call OI"], name="Call OI (Resistance)", marker_color="#ef4444"))
+        fig_nifty.add_trace(go.Bar(x=df_chain["Strike Price"], y=df_chain["Put OI"], name="Put OI (Support)", marker_color="#10b981"))
+        fig_nifty.update_layout(
+            barmode="group",
+            height=360,
+            paper_bgcolor="#111827",
+            plot_bgcolor="#111827",
+            font=dict(color="#f3f4f6"),
+            xaxis=dict(gridcolor="#1f2937", title="Strike Price"),
+            yaxis=dict(gridcolor="#1f2937", title="Open Interest")
         )
+        st.plotly_chart(fig_nifty, use_container_width=True)
 
-    with tab_all:
-        display_clean_table(df_stocks)
+        st.markdown("#### 📋 Live Option Chain Table")
+        st.dataframe(df_chain, hide_index=True, use_container_width=True)
+    else:
+        st.info("Nifty Option Chain Data filhal available nahi hai (Market Hours mein check karein).")
 
-    with tab_high:
-        display_clean_table(df_stocks[df_stocks["Confluence Score"] >= 3.5])
+# =========================================================
+# TAB 3: BANK NIFTY OPTION CHAIN
+# =========================================================
+with main_tab3:
+    st.markdown("### 🏦 Bank Nifty Real-Time Option Chain & OI Intelligence")
+    
+    with st.spinner("Fetching Bank Nifty Option Chain Data..."):
+        expiry, spot, atm, pcr, df_chain = fetch_option_chain_data("^NSEBANK", strike_step=100, num_strikes=8)
 
-    with tab_bull:
-        display_clean_table(df_stocks[df_stocks["Day Chg (%)"] > 0])
+    if not df_chain.empty:
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Bank Nifty Spot Price", f"₹{spot}")
+        c2.metric("ATM Strike", f"₹{atm}")
+        c3.metric("Put-Call Ratio (PCR)", f"{pcr}")
 
-    with tab_bear:
-        display_clean_table(df_stocks[df_stocks["Day Chg (%)"] < 0])
+        if pcr >= 1.2:
+            sentiment = "🚀 BULLISH (Heavy Put Writing)"
+            c4.success(sentiment)
+        elif pcr <= 0.8:
+            sentiment = "🔻 BEARISH (Heavy Call Writing)"
+            c4.error(sentiment)
+        else:
+            sentiment = "⚡ NEUTRAL / RANGEBOUND"
+            c4.warning(sentiment)
 
-else:
-    st.error("Market Data fetch nahi ho paya. Please Refresh button dabayein.")
+        st.markdown(f"**Expiry Date:** `{expiry}`")
+        st.markdown("---")
 
-# Footer Branding
+        st.markdown("#### 📊 Open Interest Distribution (Resistance vs Support)")
+        fig_bn = go.Figure()
+        fig_bn.add_trace(go.Bar(x=df_chain["Strike Price"], y=df_chain["Call OI"], name="Call OI (Resistance)", marker_color="#ef4444"))
+        fig_bn.add_trace(go.Bar(x=df_chain["Strike Price"], y=df_chain["Put OI"], name="Put OI (Support)", marker_color="#10b981"))
+        fig_bn.update_layout(
+            barmode="group",
+            height=360,
+            paper_bgcolor="#111827",
+            plot_bgcolor="#111827",
+            font=dict(color="#f3f4f6"),
+            xaxis=dict(gridcolor="#1f2937", title="Strike Price"),
+            yaxis=dict(gridcolor="#1f2937", title="Open Interest")
+        )
+        st.plotly_chart(fig_bn, use_container_width=True)
+
+        st.markdown("#### 📋 Live Option Chain Table")
+        st.dataframe(df_chain, hide_index=True, use_container_width=True)
+    else:
+        st.info("Bank Nifty Option Chain Data filhal available nahi hai (Market Hours mein check karein).")
+
+# ---------------------------------------------------------
+# FOOTER BRANDING
+# ---------------------------------------------------------
 st.markdown("---")
 st.markdown(
     "<div style='text-align: center; color: #6b7280; font-size: 0.8rem; padding: 10px;'>"
-    "© Grow More Trading Institute | Built for Professional Intraday Traders"
+    "© Grow More Trading Institute | Pro Intraday & Options Intelligence Dashboard"
     "</div>",
     unsafe_allow_html=True
 )
