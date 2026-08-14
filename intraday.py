@@ -105,7 +105,7 @@ st.markdown("""
     <div class="brand-header">
         <div class="brand-title">🦅 GROW MORE TRADING INSTITUTE</div>
         <div class="brand-subtitle">Intraday Stock Confluence & Live NSE Option Chain Scanner</div>
-        <div class="brand-tag">PRO TRADING TOOL 5.0 (ULTRA-FAST TLS ENGINE)</div>
+        <div class="brand-tag">PRO TRADING TOOL 5.0 (AUTO SESSION RECOVERY)</div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -144,103 +144,94 @@ SECTOR_MAP = {
 }
 
 # ---------------------------------------------------------
-# FAST NSE OPTION CHAIN FETCH ENGINE (CURL-CFFI WITH 404 FIX)
+# FAST NSE OPTION CHAIN FETCH ENGINE (DYNAMIC SESSION RECOVER)
 # ---------------------------------------------------------
 @st.cache_data(ttl=30)
 def fetch_nse_live_option_chain(symbol="BANKNIFTY", strike_step=100, num_strikes=8):
     """
-    Robust Option Chain Fetcher with Cookie Warmup & Automatic Retry to fix 404 Errors
+    Ultra-Robust Option Chain Fetcher with Dynamic Session Reset for NSE Akamai Bypass
     """
     symbol = symbol.upper()
     base_url = "https://www.nseindia.com"
     oc_page_url = "https://www.nseindia.com/option-chain"
     api_url = f"https://www.nseindia.com/api/option-chain-indices?symbol={symbol}"
 
-    browser_headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': '*/*',
         'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-    }
-
-    api_headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/javascript, */*; q=0.01',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'X-Requested-With': 'XMLHttpRequest',
         'Referer': oc_page_url,
     }
 
-    try:
-        session = requests.Session(impersonate="chrome120")
-        
-        # Step 1: Establish Session & Get Initial Cookies
-        session.get(base_url, headers=browser_headers, timeout=10)
-        time.sleep(0.5)
-        
-        # Step 2: Hit Option Chain page to activate Session Token
-        session.get(oc_page_url, headers=browser_headers, timeout=10)
-        time.sleep(0.5)
+    # Up to 3 retries with complete session recreation if 404 happens
+    for attempt in range(3):
+        try:
+            session = requests.Session(impersonate="chrome120")
+            
+            # Step 1: Warmup Base URL
+            session.get(base_url, headers=headers, timeout=10)
+            time.sleep(0.5)
+            
+            # Step 2: Warmup Option Chain Page to activate token
+            session.get(oc_page_url, headers=headers, timeout=10)
+            time.sleep(0.5)
 
-        # Step 3: Hit API Endpoint (Retry up to 2 times if 404 occurs)
-        response = None
-        for _ in range(2):
-            response = session.get(api_url, headers=api_headers, timeout=10)
+            # Step 3: Fetch Option Chain Data
+            response = session.get(api_url, headers=headers, timeout=10)
+
             if response.status_code == 200:
-                break
+                json_data = response.json()
+                records = json_data.get("records", {})
+
+                spot_price = round(float(records.get("underlyingValue", 0)), 2)
+                expiries = records.get("expiryDates", [])
+
+                if not expiries or spot_price == 0:
+                    st.warning(f"⚠️ NSE API responded, but data is empty for {symbol}.")
+                    return None, 0, 0, 0, pd.DataFrame()
+
+                near_expiry = expiries[0]
+                atm_strike = round(spot_price / strike_step) * strike_step
+                target_strikes = [atm_strike + (i * strike_step) for i in range(-num_strikes, num_strikes + 1)]
+
+                chain_list = []
+                raw_data = records.get("data", [])
+
+                for row in raw_data:
+                    if row.get("expiryDate") == near_expiry and row.get("strikePrice") in target_strikes:
+                        strike = row.get("strikePrice")
+                        ce_data = row.get("CE", {})
+                        pe_data = row.get("PE", {})
+
+                        chain_list.append({
+                            "Call OI": ce_data.get("openInterest", 0),
+                            "Call LTP": ce_data.get("lastPrice", 0),
+                            "Call IV": ce_data.get("impliedVolatility", 0),
+                            "Strike Price": strike,
+                            "Put LTP": pe_data.get("lastPrice", 0),
+                            "Put OI": pe_data.get("openInterest", 0),
+                            "Put IV": pe_data.get("impliedVolatility", 0)
+                        })
+
+                df_chain = pd.DataFrame(chain_list)
+                if not df_chain.empty:
+                    df_chain = df_chain.sort_values(by="Strike Price").reset_index(drop=True)
+
+                    total_call_oi = df_chain["Call OI"].sum()
+                    total_put_oi = df_chain["Put OI"].sum()
+                    pcr = round(total_put_oi / total_call_oi, 2) if total_call_oi > 0 else 0.0
+
+                    return near_expiry, spot_price, atm_strike, pcr, df_chain
+
+            elif response.status_code == 404:
+                time.sleep(1)
+                continue  # Retry with fresh session
+
+        except Exception:
             time.sleep(1)
+            continue
 
-        if response and response.status_code == 200:
-            json_data = response.json()
-            records = json_data.get("records", {})
-
-            spot_price = round(float(records.get("underlyingValue", 0)), 2)
-            expiries = records.get("expiryDates", [])
-
-            if not expiries or spot_price == 0:
-                st.warning(f"⚠️ NSE API responded, but data is currently unavailable for {symbol}.")
-                return None, 0, 0, 0, pd.DataFrame()
-
-            near_expiry = expiries[0]
-            atm_strike = round(spot_price / strike_step) * strike_step
-
-            target_strikes = [atm_strike + (i * strike_step) for i in range(-num_strikes, num_strikes + 1)]
-
-            chain_list = []
-            raw_data = records.get("data", [])
-
-            for row in raw_data:
-                if row.get("expiryDate") == near_expiry and row.get("strikePrice") in target_strikes:
-                    strike = row.get("strikePrice")
-                    ce_data = row.get("CE", {})
-                    pe_data = row.get("PE", {})
-
-                    chain_list.append({
-                        "Call OI": ce_data.get("openInterest", 0),
-                        "Call LTP": ce_data.get("lastPrice", 0),
-                        "Call IV": ce_data.get("impliedVolatility", 0),
-                        "Strike Price": strike,
-                        "Put LTP": pe_data.get("lastPrice", 0),
-                        "Put OI": pe_data.get("openInterest", 0),
-                        "Put IV": pe_data.get("impliedVolatility", 0)
-                    })
-
-            df_chain = pd.DataFrame(chain_list)
-            if not df_chain.empty:
-                df_chain = df_chain.sort_values(by="Strike Price").reset_index(drop=True)
-
-                total_call_oi = df_chain["Call OI"].sum()
-                total_put_oi = df_chain["Put OI"].sum()
-                pcr = round(total_put_oi / total_call_oi, 2) if total_call_oi > 0 else 0.0
-
-                return near_expiry, spot_price, atm_strike, pcr, df_chain
-        else:
-            status_code = response.status_code if response else "No Response"
-            st.error(f"⚠️ NSE Server HTTP Status Code: {status_code} (Session Cookie Expiration)")
-
-    except Exception as e:
-        st.error(f"⚠️ Connection Error: {str(e)}")
-
+    st.error("⚠️ NSE Server Status: 404 (NSE Server blocked request or Market Closed)")
     return None, 0, 0, 0, pd.DataFrame()
 
 # ---------------------------------------------------------
