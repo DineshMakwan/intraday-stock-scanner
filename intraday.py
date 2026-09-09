@@ -23,7 +23,7 @@ import streamlit as st
 import yfinance as yf
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PAGE CONFIGURATION — must be first Streamlit call
+# PAGE CONFIGURATION
 # ─────────────────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Grow More — Sector RRG Analytics",
@@ -38,7 +38,6 @@ st.set_page_config(
 BENCHMARK_SYMBOL = "^NSEI"
 IST_OFFSET = timezone(timedelta(hours=5, minutes=30))
 
-# Single source of truth for chart colors — no more copy-paste across functions
 CHART_COLORS = [
     "#10B981", "#3B82F6", "#EF4444", "#F59E0B", "#8B5CF6", "#EC4899",
     "#14B8A6", "#F97316", "#6366F1", "#06B6D4", "#A855F7", "#EAB308",
@@ -58,7 +57,6 @@ QUADRANT_CFG = {
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-/* ── BASE ─────────────────────────────────────────────────────────────────── */
 .stApp { background: #060b18; color: #e2e8f0; }
 [data-testid="stSidebar"] {
     background: #080f1f;
@@ -75,7 +73,6 @@ st.markdown("""
 .stTabs [data-baseweb="tab"] { background: transparent; color: #64748b; border-radius: 7px; font-weight: 500; font-size: 0.88rem; padding: 8px 16px; }
 .stTabs [aria-selected="true"] { background: rgba(59,130,246,0.15); color: #93c5fd; border-bottom: none; }
 
-/* ── BRAND HEADER ─────────────────────────────────────────────────────────── */
 .brand-header {
     background: linear-gradient(135deg, #0c1e3e 0%, #080f1f 60%, #0f172a 100%);
     padding: 22px 30px;
@@ -121,7 +118,6 @@ st.markdown("""
 .clock-text  { font-size: 0.84rem; color: #38bdf8; font-weight: 600; font-family: 'Courier New', monospace; }
 @keyframes blink { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.35;transform:scale(0.8);} }
 
-/* ── KPI CARDS ────────────────────────────────────────────────────────────── */
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin: 20px 0 28px; }
 .kpi-card {
     background: rgba(12,20,40,0.8);
@@ -138,7 +134,6 @@ st.markdown("""
 .c-amber { color: #f59e0b; } .c-red  { color: #ef4444; }
 .c-white { color: #f1f5f9; } .c-pink { color: #ec4899; }
 
-/* ── STATUS BADGES ────────────────────────────────────────────────────────── */
 .status-badge { padding: 3px 10px; border-radius: 6px; font-weight: 600; font-size: 0.76rem; display: inline-block; letter-spacing: 0.3px; }
 .bg-leading   { background:rgba(16,185,129,0.13); color:#10b981; border:1px solid rgba(16,185,129,0.28); }
 .bg-improving { background:rgba(59,130,246,0.13); color:#3b82f6; border:1px solid rgba(59,130,246,0.28); }
@@ -147,7 +142,6 @@ st.markdown("""
 .bg-near-high { background:rgba(236,72,153,0.13); color:#ec4899; border:1px solid rgba(236,72,153,0.28); }
 .bg-normal    { background:rgba(71,85,105,0.18);  color:#94a3b8; border:1px solid rgba(71,85,105,0.35);  }
 
-/* ── DATA TABLE ───────────────────────────────────────────────────────────── */
 .rrg-table { width:100%; border-collapse:collapse; border-radius:12px; overflow:hidden; margin-top:14px; }
 .rrg-table thead tr  { background:#0a1628; }
 .rrg-table th {
@@ -164,7 +158,6 @@ st.markdown("""
 .td-cmp  { font-weight:700; color:#38bdf8; }
 .td-high { font-weight:600; color:#94a3b8; }
 
-/* ── SETUP CARDS ──────────────────────────────────────────────────────────── */
 .setup-card { border-radius:13px; padding:18px 20px; margin-bottom:14px; border:1px solid; transition:transform 0.15s, box-shadow 0.15s; }
 .setup-card:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(0,0,0,0.35); }
 .card-long  { background:rgba(16,185,129,0.06); border-color:rgba(16,185,129,0.25); }
@@ -177,7 +170,6 @@ st.markdown("""
 .card-sl     { color:#ef4444; }
 .card-rr     { color:#f59e0b; font-weight:700; }
 
-/* ── MONEY FLOW HIGHLIGHT CARDS ───────────────────────────────────────────── */
 .flow-card { border-radius:13px; padding:20px 24px; border:1px solid; }
 .flow-in  { background:rgba(16,185,129,0.07); border-color:rgba(16,185,129,0.22); }
 .flow-out { background:rgba(239,68,68,0.07);  border-color:rgba(239,68,68,0.22);  }
@@ -185,11 +177,9 @@ st.markdown("""
 .flow-sector{ font-size:1.4rem; font-weight:800; color:#f1f5f9; margin:2px 0 6px; }
 .flow-meta  { font-size:0.84rem; color:#64748b; margin:0; }
 
-/* ── SECTION HEADERS ──────────────────────────────────────────────────────── */
 .section-header { font-size:1.05rem; font-weight:700; color:#f1f5f9; margin:0 0 4px; }
 .section-sub    { font-size:0.84rem; color:#475569; margin-bottom:20px; }
 
-/* ── FOOTER ───────────────────────────────────────────────────────────────── */
 .footer {
     text-align:center; color:#1e3a5f; font-size:0.8rem;
     margin-top:52px; padding:20px;
@@ -198,21 +188,19 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # MARKET HOURS HELPER
 # ─────────────────────────────────────────────────────────────────────────────
 def is_market_open() -> bool:
     now = datetime.now(IST_OFFSET)
-    if now.weekday() >= 5:          # Saturday / Sunday
+    if now.weekday() >= 5:
         return False
     market_start = dtime(9, 15)
     market_end   = dtime(15, 30)
     return market_start <= now.time() <= market_end
 
-
 # ─────────────────────────────────────────────────────────────────────────────
-# SECTOR MAP  — 23 NSE Sectors with correct benchmarks
+# SECTOR MAP — Correct Benchmarks
 # ─────────────────────────────────────────────────────────────────────────────
 SECTOR_MAP = {
     "Nifty Bank": {
@@ -284,19 +272,6 @@ SECTOR_MAP = {
             "NATCOPHARM": "NATCOPHARM.NS", "AJANTPHARM": "AJANTPHARM.NS",
         },
     },
-    "Nifty Healthcare": {
-        "index": "^CNXPHARMA",
-        "stocks": {
-            "APOLLOHOSP": "APOLLOHOSP.NS", "MAXHEALTH":  "MAXHEALTH.NS",
-            "FORTIS":     "FORTIS.NS",     "MEDANTA":    "MEDANTA.NS",
-            "NH":         "NH.NS",         "KIMS":       "KIMS.NS",
-            "ASTERDM":    "ASTERDM.NS",    "LALPATHLAB": "LALPATHLAB.NS",
-            "SUNPHARMA":  "SUNPHARMA.NS",  "CIPLA":      "CIPLA.NS",
-            "DRREDDY":    "DRREDDY.NS",    "DIVISLAB":   "DIVISLAB.NS",
-            "ABBOTINDIA": "ABBOTINDIA.NS", "PFIZER":     "PFIZER.NS",
-            "GLAXO":      "GLAXO.NS",
-        },
-    },
     "Nifty Auto": {
         "index": "^CNXAUTO",
         "stocks": {
@@ -342,7 +317,6 @@ SECTOR_MAP = {
             "OBEROIRLTY": "OBEROIRLTY.NS", "PHOENIXLTD": "PHOENIXLTD.NS",
             "ANANTRAJ":   "ANANTRAJ.NS",   "BRIGADE":    "BRIGADE.NS",
             "SOBHA":      "SOBHA.NS",      "ABREL":      "ABREL.NS",
-            "EMBASSY":    "EMBASSY.NS",    "MINDSPACE":  "MINDSPACE.NS",
         },
     },
     "Nifty Energy": {
@@ -355,42 +329,6 @@ SECTOR_MAP = {
             "ADANIGREEN": "ADANIGREEN.NS", "COALINDIA":  "COALINDIA.NS",
         },
     },
-    "Nifty Oil & Gas": {
-        "index": "^CNXENERGY",
-        "stocks": {
-            "RELIANCE":   "RELIANCE.NS",   "ONGC":       "ONGC.NS",
-            "BPCL":       "BPCL.NS",       "IOC":        "IOC.NS",
-            "GAIL":       "GAIL.NS",       "OIL":        "OIL.NS",
-            "PETRONET":   "PETRONET.NS",   "MGL":        "MGL.NS",
-            "IGL":        "IGL.NS",        "ATGL":       "ATGL.NS",
-            "HINDPETRO":  "HINDPETRO.NS",  "CASTROLIND": "CASTROLIND.NS",
-        },
-    },
-    "Nifty Cement": {
-        "index": "^CNXINFRA",          # Infrastructure index — best proxy for cement on yfinance
-        "stocks": {
-            "ULTRACEMCO": "ULTRACEMCO.NS", "SHREECEM":   "SHREECEM.NS",
-            "GRASIM":     "GRASIM.NS",     "AMBUJACEM":  "AMBUJACEM.NS",
-            "ACC":        "ACC.NS",        "DALBHARAT":  "DALBHARAT.NS",
-            "JKCEMENT":   "JKCEMENT.NS",   "RAMCOCEM":   "RAMCOCEM.NS",
-            "BIRLACORPN": "BIRLACORPN.NS", "JKLAKSHMI":  "JKLAKSHMI.NS",
-            "STARCEMENT": "STARCEMENT.NS", "NUVOCO":     "NUVOCO.NS",
-            "ORIENTCEM":  "ORIENTCEM.NS",  "INDIACEM":   "INDIACEM.NS",
-        },
-    },
-    "Nifty Chemicals": {
-        "index": "^NSEI",              # No direct NSE Chemicals index on yfinance; use Nifty 50
-        "stocks": {
-            "PIDILITIND": "PIDILITIND.NS", "SRF":        "SRF.NS",
-            "DEEPAKNTR":  "DEEPAKNTR.NS",  "AARTIIND":   "AARTIIND.NS",
-            "TATACHEM":   "TATACHEM.NS",   "UPL":        "UPL.NS",
-            "PIIND":      "PIIND.NS",      "NAVINFLUOR": "NAVINFLUOR.NS",
-            "FLUOROCHEM": "FLUOROCHEM.NS", "ATUL":       "ATUL.NS",
-            "PCBL":       "PCBL.NS",       "SUMICHEM":   "SUMICHEM.NS",
-            "COROMANDEL": "COROMANDEL.NS", "BAYERCROP":  "BAYERCROP.NS",
-            "DEEPAKFERT": "DEEPAKFERT.NS", "CHAMBLFERT": "CHAMBLFERT.NS",
-        },
-    },
     "Nifty Infrastructure": {
         "index": "^CNXINFRA",
         "stocks": {
@@ -401,27 +339,6 @@ SECTOR_MAP = {
             "CONCOR":     "CONCOR.NS",     "NTPC":       "NTPC.NS",
             "POWERGRID":  "POWERGRID.NS",  "TATAPOWER":  "TATAPOWER.NS",
             "INDIGO":     "INDIGO.NS",     "ULTRACEMCO": "ULTRACEMCO.NS",
-        },
-    },
-    "Nifty Media": {
-        "index": "^CNXMEDIA",
-        "stocks": {
-            "SUNTV":      "SUNTV.NS",      "ZEEL":       "ZEEL.NS",
-            "PVRINOX":    "PVRINOX.NS",    "TV18BRDCST": "TV18BRDCST.NS",
-            "NETWORK18":  "NETWORK18.NS",  "NAZARA":     "NAZARA.NS",
-            "DISHTV":     "DISHTV.NS",     "HATHWAY":    "HATHWAY.NS",
-            "TIPSMUSIC":  "TIPSMUSIC.NS",
-        },
-    },
-    "Nifty Consumer Durables": {
-        "index": "^CNXCONSUM",
-        "stocks": {
-            "TITAN":      "TITAN.NS",      "DIXON":      "DIXON.NS",
-            "HAVELLS":    "HAVELLS.NS",    "VOLTAS":     "VOLTAS.NS",
-            "CROMPTON":   "CROMPTON.NS",   "AMBER":      "AMBER.NS",
-            "BLUESTARCO": "BLUESTARCO.NS", "KALYANKJIL": "KALYANKJIL.NS",
-            "BATAINDIA":  "BATAINDIA.NS",  "KAJARIACER": "KAJARIACER.NS",
-            "WHIRLPOOL":  "WHIRLPOOL.NS",  "PGEL":       "PGEL.NS",
         },
     },
     "Nifty Commodities": {
@@ -461,31 +378,7 @@ SECTOR_MAP = {
             "CONCOR":     "CONCOR.NS",     "IRCTC":      "IRCTC.NS",
         },
     },
-    "Nifty MidSmall Healthcare": {
-        "index": "^CNXPHARMA",
-        "stocks": {
-            "NATCOPHARM": "NATCOPHARM.NS", "IPCALAB":    "IPCALAB.NS",
-            "AJANTPHARM": "AJANTPHARM.NS", "WOCKPHARMA": "WOCKPHARMA.NS",
-            "PPLPHARMA":  "PPLPHARMA.NS",  "GLAND":      "GLAND.NS",
-            "MEDANTA":    "MEDANTA.NS",    "NEULANDLAB": "NEULANDLAB.NS",
-            "GLENMARK":   "GLENMARK.NS",   "LALPATHLAB": "LALPATHLAB.NS",
-            "AUROPHARMA": "AUROPHARMA.NS", "GRANULES":   "GRANULES.NS",
-            "ALKEM":      "ALKEM.NS",      "LAURUSLABS": "LAURUSLABS.NS",
-            "SYNGENE":    "SYNGENE.NS",    "BIOCON":     "BIOCON.NS",
-        },
-    },
-    "Nifty REITs": {
-        "index": "^CNXREALTY",
-        "stocks": {
-            "EMBASSY":    "EMBASSY.NS",    "MINDSPACE":  "MINDSPACE.NS",
-            "BIRET":      "BIRET.NS",      "NXST":       "NXST.NS",
-            "LODHA":      "LODHA.NS",      "DLF":        "DLF.NS",
-            "PRESTIGE":   "PRESTIGE.NS",   "BRIGADE":    "BRIGADE.NS",
-            "PHOENIXLTD": "PHOENIXLTD.NS", "OBEROIRLTY": "OBEROIRLTY.NS",
-        },
-    },
 }
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SIDEBAR
@@ -504,7 +397,7 @@ with st.sidebar:
                          help="Number of historical data points shown as tail on RRG chart")
 
     rrg_period = st.slider("RS Smoothing Period", min_value=5, max_value=26, value=14,
-                           help="Look-back window for RS-Ratio and RS-Momentum calculation")
+                           help="Look-back window for RS-Ratio calculation")
 
     st.markdown("---")
     st.markdown("### 🔍 Stock Drill-Down")
@@ -529,7 +422,6 @@ with st.sidebar:
         "Data cached for 5 min. Click Refresh for live update.</div>",
         unsafe_allow_html=True,
     )
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HELPER FUNCTIONS
@@ -572,8 +464,9 @@ def calculate_rrg_metrics(
     period: int = 14,
 ) -> pd.DataFrame | None:
     """
-    Compute RS-Ratio and RS-Momentum (JdK RS methodology).
-    Returns DataFrame with columns ['ratio', 'momentum'] or None on insufficient data.
+    FIXED: Accurate JdK Relative Rotation Graph Methodology.
+    RS-Ratio = Trend of Relative Strength
+    RS-Momentum = Rate of Change of RS-Ratio
     """
     if item_ticker not in data_df.columns or bench_ticker not in data_df.columns:
         return None
@@ -586,14 +479,19 @@ def calculate_rrg_metrics(
     if len(combined) < period * 3:
         return None
 
+    # Step 1: Base Relative Strength Ratio
     rs = (combined["item"] / combined["bench"]) * 100
+
+    # Step 2: RS-Ratio (Z-Score normalization around 100)
     rs_mean = rs.rolling(period).mean()
     rs_std  = rs.rolling(period).std()
     rs_ratio = 100 + ((rs - rs_mean) / (rs_std + 1e-9)) * 10
 
-    rm_mean = rs_ratio.rolling(period).mean()
-    rm_std  = rs_ratio.rolling(period).std()
-    rs_momentum = 100 + ((rs_ratio - rm_mean) / (rm_std + 1e-9)) * 10
+    # Step 3: FIXED RS-Momentum (Normalized 1-Period Rate-of-Change of RS-Ratio)
+    roc_1 = rs_ratio - rs_ratio.shift(1)
+    roc_mean = roc_1.rolling(period).mean()
+    roc_std = roc_1.rolling(period).std()
+    rs_momentum = 100 + ((roc_1 - roc_mean) / (roc_std + 1e-9)) * 10
 
     return pd.DataFrame({"ratio": rs_ratio, "momentum": rs_momentum}).dropna()
 
@@ -607,7 +505,7 @@ def compute_volatility_sl(prices: pd.Series, lookback: int = 20) -> float:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# DATA FETCH — CACHED
+# DATA FETCH CACHED
 # ─────────────────────────────────────────────────────────────────────────────
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_and_build_rrg(
@@ -616,11 +514,6 @@ def fetch_and_build_rrg(
     interval: str,
     period: int = 14,
 ) -> dict:
-    """
-    Download 2-year OHLCV data for all tickers in one batch call,
-    then compute RRG metrics for each item vs the benchmark.
-    Returns dict: { display_name: {metrics, prices, cmp, high_52w, dist_52w, ticker} }
-    """
     all_tickers = list(set(list(items_dict.values()) + [benchmark_ticker, BENCHMARK_SYMBOL]))
 
     try:
@@ -640,12 +533,10 @@ def fetch_and_build_rrg(
     if not isinstance(df_high.index, pd.DatetimeIndex):
         df_high.index = pd.to_datetime(df_high.index)
 
-    # Resample to weekly end-of-week if needed
     if interval == "1wk":
         df_close = df_close.resample("W").last()
         df_high  = df_high.resample("W").max()
 
-    # Choose best available benchmark
     active_bench = benchmark_ticker
     if active_bench not in df_close.columns or df_close[active_bench].dropna().empty:
         active_bench = BENCHMARK_SYMBOL
@@ -677,7 +568,6 @@ def fetch_and_build_rrg(
 
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_pair_data(t1: str, t2: str, interval: str) -> pd.DataFrame:
-    """Cached pair data download."""
     try:
         raw = yf.download([t1, t2, BENCHMARK_SYMBOL], period="1y",
                           interval=interval, progress=False, auto_adjust=True)
@@ -689,8 +579,8 @@ def fetch_pair_data(t1: str, t2: str, interval: str) -> pd.DataFrame:
 @st.cache_data(ttl=300, show_spinner=False)
 def calculate_sector_money_flow(_sector_map: dict) -> pd.DataFrame:
     """
-    SINGLE batched yfinance download for ALL sector stocks,
-    then compute Price×Volume money flow score per sector.
+    FIXED: Proper Price-Volume Multiplier using actual Volume Ratio 
+    instead of biased volume percentage changes.
     """
     ticker_list: list[str] = []
     sector_tickers: dict[str, list[str]] = {}
@@ -728,14 +618,16 @@ def calculate_sector_money_flow(_sector_map: dict) -> pd.DataFrame:
 
             p_chg = ((p.iloc[-1] - p.iloc[-2]) / (abs(p.iloc[-2]) + 1e-9)) * 100
             v_prev = v.iloc[-2]
-            v_chg  = ((v.iloc[-1] - v_prev) / (abs(v_prev) + 1e-9)) * 100 if v_prev > 0 else 0.0
+            v_curr = v.iloc[-1]
+            v_ratio = (v_curr / (v_prev + 1e-9)) if v_prev > 0 else 1.0
 
-            if   p_chg > 0 and v_chg > 0:  lb += 1
-            elif p_chg < 0 and v_chg > 0:  sb += 1
-            elif p_chg < 0 and v_chg <= 0: lu += 1
-            else:                            sc += 1
+            if p_chg > 0 and v_ratio > 1.0:      lb += 1
+            elif p_chg < 0 and v_ratio > 1.0:    sb += 1
+            elif p_chg < 0 and v_ratio <= 1.0:   lu += 1
+            else:                                sc += 1
 
-            scores.append(p_chg * (1 + v_chg / 100))
+            # Money Flow Score weighted by actual volume multiplier
+            scores.append(p_chg * v_ratio)
 
         if not scores:
             continue
@@ -772,15 +664,13 @@ def render_rrg_chart(
     tail: int = 5,
     thresh: float = 5.0,
 ) -> tuple[go.Figure, pd.DataFrame]:
-    """Render the Relative Rotation Graph and return (figure, summary_df)."""
     fig = go.Figure()
     summary = []
-
     all_x, all_y = [], []
 
     for idx, (name, item) in enumerate(rrg_data.items()):
-        df      = item["metrics"]
-        cmp     = item["cmp"]
+        df       = item["metrics"]
+        cmp      = item["cmp"]
         high_52w = item["high_52w"]
         dist_52w = item["dist_52w"]
 
@@ -806,7 +696,6 @@ def render_rrg_chart(
         near_status  = f"🔥 {dist_52w:.1f}%" if is_near else f"{dist_52w:.1f}%"
         near_badge   = "bg-near-high" if is_near else "bg-normal"
 
-        # Trail line (dashed, fading)
         if len(x_vals) > 1:
             fig.add_trace(go.Scatter(
                 x=x_vals[:-1], y=y_vals[:-1],
@@ -815,7 +704,6 @@ def render_rrg_chart(
                 opacity=0.45, showlegend=False, hoverinfo="none",
             ))
 
-        # Head marker with label
         fig.add_trace(go.Scatter(
             x=[hx], y=[hy],
             mode="markers+text",
@@ -853,7 +741,6 @@ def render_rrg_chart(
             "NearBadgeClass": near_badge,
         })
 
-    # Dynamic axis padding
     if all_x and all_y:
         pad_x = max(abs(100 - min(all_x)), abs(max(all_x) - 100)) + 2.0
         pad_y = max(abs(100 - min(all_y)), abs(max(all_y) - 100)) + 2.0
@@ -877,7 +764,6 @@ def render_rrg_chart(
                    gridcolor="#0f1e35", color="#475569", zeroline=False,
                    tickfont=dict(size=11, color="#475569")),
         shapes=[
-            # Quadrant fills
             dict(type="rect", x0=100, x1=xr[1], y0=100, y1=yr[1],
                  fillcolor="rgba(16,185,129,0.06)", line_width=0, layer="below"),
             dict(type="rect", x0=100, x1=xr[1], y0=yr[0], y1=100,
@@ -886,7 +772,6 @@ def render_rrg_chart(
                  fillcolor="rgba(239,68,68,0.06)",  line_width=0, layer="below"),
             dict(type="rect", x0=xr[0], x1=100, y0=100, y1=yr[1],
                  fillcolor="rgba(59,130,246,0.06)", line_width=0, layer="below"),
-            # Crosshair lines
             dict(type="line", x0=100, x1=100, y0=yr[0], y1=yr[1],
                  line=dict(color="#1e3a5f", width=1.5, dash="dash")),
             dict(type="line", x0=xr[0], x1=xr[1], y0=100, y1=100,
@@ -920,12 +805,10 @@ def render_rrg_chart(
 # STYLED TABLE RENDERER
 # ─────────────────────────────────────────────────────────────────────────────
 def render_styled_table(df: pd.DataFrame, col_name: str = "Name", sort_key: str = "") -> None:
-    """Render a premium HTML data table with optional sort."""
     if df is None or df.empty:
         st.info("No items in this category right now.")
         return
 
-    # Sort control
     sort_options = ["RS-Ratio", "RS-Momentum", "Dist 52W High (%)", "CMP", "Quadrant"]
     col_s, _ = st.columns([2, 6])
     sort_by = col_s.selectbox(
@@ -1036,7 +919,6 @@ def render_animated_rrg(rrg_data: dict, lookback: int = 12) -> None:
         st.warning("No data available for animation.")
         return
 
-    # Find intersection of all dates
     common_dates = None
     for item in rrg_data.values():
         dates = set(item["metrics"].index)
@@ -1051,7 +933,6 @@ def render_animated_rrg(rrg_data: dict, lookback: int = 12) -> None:
         st.warning("Insufficient date range for animation.")
         return
 
-    # Compute dynamic axis range from ALL animation data
     all_ratios, all_moms = [], []
     for item in rrg_data.values():
         df = item["metrics"]
@@ -1254,11 +1135,6 @@ def render_pair_comparison(sec1: str, sec2: str, interval: str) -> None:
 # SMART TRADE SETUP GENERATOR
 # ─────────────────────────────────────────────────────────────────────────────
 def generate_trade_setups(rrg_data: dict, thresh: float = 6.0) -> tuple[list, list]:
-    """
-    Rule-based high-conviction setup generator.
-    Stop-loss is volatility-adjusted (not hardcoded).
-    Risk-Reward is computed dynamically.
-    """
     long_setups, short_setups = [], []
 
     for name, data in rrg_data.items():
@@ -1275,10 +1151,8 @@ def generate_trade_setups(rrg_data: dict, thresh: float = 6.0) -> tuple[list, li
         curr_mom   = metrics["momentum"].iloc[-1]
         quad, *_   = get_quadrant(curr_ratio, curr_mom)
 
-        # Volatility-based stop (3%–8%)
         sl_pct = compute_volatility_sl(prices)
 
-        # ── LONG SETUP: Leading or Improving + near 52W High + rising momentum
         if quad in ("Leading", "Improving") and dist_52w <= thresh and curr_mom >= 99.5:
             sl     = round(cmp * (1 - sl_pct / 100), 2)
             t1_pct = sl_pct * 2.0
@@ -1294,7 +1168,6 @@ def generate_trade_setups(rrg_data: dict, thresh: float = 6.0) -> tuple[list, li
                 "Risk Reward": f"1 : {rr}",
             })
 
-        # ── SHORT / EXIT SETUP: Lagging + far from 52W High + falling momentum
         if quad == "Lagging" and dist_52w >= 12.0 and curr_mom < 99.5:
             sl      = round(cmp * (1 + sl_pct / 100), 2)
             t_down  = round(cmp * (1 - sl_pct * 2 / 100), 2)
@@ -1312,11 +1185,6 @@ def generate_trade_setups(rrg_data: dict, thresh: float = 6.0) -> tuple[list, li
 # QUADRANT BACKTEST ENGINE
 # ─────────────────────────────────────────────────────────────────────────────
 def run_quadrant_backtest(rrg_data: dict, interval: str = "1d") -> pd.DataFrame:
-    """
-    Backtest: Improving → Leading quadrant transition signal.
-    Returns forward returns (5-period & 10-period) and win rate.
-    Period label adjusts for weekly vs daily timeframe.
-    """
     p_label = "5W" if interval == "1wk" else "5D"
     t_label = "10W" if interval == "1wk" else "10D"
 
@@ -1402,7 +1270,6 @@ def render_money_flow_tab(sector_map: dict) -> None:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Horizontal bar chart (much better with many sectors)
     colors = ["#10b981" if v >= 0 else "#ef4444" for v in df["Flow Score"]]
     fig = go.Figure(go.Bar(
         y=df["Sector"],
@@ -1428,7 +1295,6 @@ def render_money_flow_tab(sector_map: dict) -> None:
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    # Buildup breakdown table
     st.markdown("---")
     st.markdown('<p class="section-header">📋 Sector Buildup Breakdown</p>', unsafe_allow_html=True)
 
@@ -1463,7 +1329,7 @@ def render_money_flow_tab(sector_map: dict) -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# HEADER — Market Hours Aware
+# HEADER
 # ─────────────────────────────────────────────────────────────────────────────
 now_ist     = datetime.now(IST_OFFSET)
 market_open = is_market_open()
@@ -1509,7 +1375,7 @@ st.markdown(f"""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# DATA LOAD — Sector RRG (with session_state caching to avoid repeat loads)
+# DATA LOAD
 # ─────────────────────────────────────────────────────────────────────────────
 sector_ticker_dict = {s: SECTOR_MAP[s]["index"] for s in SECTOR_MAP}
 
@@ -1522,7 +1388,6 @@ if not sector_rrg_data:
     st.error("❌ Could not fetch market data. Check your internet connection and try refreshing.")
     st.stop()
 
-# KPI Summary Row
 render_kpi_summary(sector_rrg_data, high_threshold)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1572,24 +1437,22 @@ with tab2:
         unsafe_allow_html=True,
     )
 
-    sec_info        = SECTOR_MAP[selected_sector_for_stocks]
-    stock_dict      = sec_info["stocks"]
-    sector_bench    = sec_info["index"]
+    sec_info     = SECTOR_MAP[selected_sector_for_stocks]
+    stock_dict   = sec_info["stocks"]
 
     with st.spinner(f"Loading {selected_sector_for_stocks} stocks…"):
         stock_rrg_data = fetch_and_build_rrg(
-            stock_dict, sector_bench, timeframe, rrg_period
+            stock_dict, BENCHMARK_SYMBOL, timeframe, rrg_period
         )
 
     if not stock_rrg_data:
         st.warning("Could not fetch stock data for this sector. Try a different sector or refresh.")
     else:
-        # KPI for stocks
         render_kpi_summary(stock_rrg_data, high_threshold)
 
         fig_stk, df_stk = render_rrg_chart(
             stock_rrg_data,
-            f"{selected_sector_for_stocks} — Stocks vs Sector Index",
+            f"{selected_sector_for_stocks} — Stocks vs Benchmark",
             tail=tail_len,
             thresh=high_threshold,
         )
@@ -1721,7 +1584,6 @@ with tab4:
     if bt_df.empty:
         st.info("Insufficient historical data for backtest. Try switching to Weekly timeframe.")
     else:
-        # Colour-code the dataframe
         st.dataframe(
             bt_df,
             use_container_width=True,
