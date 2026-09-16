@@ -1360,10 +1360,15 @@ def run_quadrant_backtest(sector_rrg_data):
             q, _, _, _ = get_quadrant(r, m)
             quadrants.append(q)
 
-        metrics["quadrant"] = quadrants
-        metrics["price"] = prices.reindex(metrics.index)
+        # FIXED: Assign via dictionary/assign to avoid SettingWithCopyWarning & performance issues in Pandas 2.0+
+        metrics = metrics.assign(
+            quadrant=quadrants,
+            price=prices.reindex(metrics.index)
+        )
+        metrics = metrics.assign(
+            prev_quadrant=metrics["quadrant"].shift(1)
+        )
 
-        metrics["prev_quadrant"] = metrics["quadrant"].shift(1)
         transitions = metrics[
             (metrics["prev_quadrant"] == "Improving")
             & (metrics["quadrant"] == "Leading")
@@ -1624,6 +1629,7 @@ main_tab1, main_tab2, main_tab3, main_tab4, main_tab5 = st.tabs([
 # Fetch Sector Data
 sector_ticker_dict = {sec: SECTOR_MAP[sec]["index"] for sec in SECTOR_MAP}
 
+# FIXED: Replaced broad-scope spinner with focused data-loading spinner
 with st.spinner("Fetching Live Sector Market Data..."):
     sector_rrg_data = fetch_and_build_rrg(
         sector_ticker_dict, BENCHMARK_SYMBOL, timeframe
