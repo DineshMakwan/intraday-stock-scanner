@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -7,976 +8,208 @@ import yfinance as yf
 
 # Page Configuration
 st.set_page_config(
-    page_title="Grow More Trading Institute - Advanced RRG Analytics",
+    page_title="Grow More Trading Institute - RRG Analytics",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# Custom Dark Theme Styling & Institute Branding
+# Custom CSS Styling
 st.markdown(
     """
     <style>
     .stApp { background-color: #0b0f19; color: #f3f4f6; }
-    
     .brand-header {
         background: linear-gradient(90deg, #1e3a8a 0%, #0f172a 100%);
-        padding: 18px 24px;
-        border-radius: 12px;
-        border-left: 6px solid #3b82f6;
-        margin-bottom: 25px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 15px;
+        padding: 18px 24px; border-radius: 12px; border-left: 6px solid #3b82f6;
+        margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center;
     }
-    .brand-title { font-size: 1.8rem; font-weight: 700; color: #ffffff; margin: 0; letter-spacing: 0.5px; }
-    .brand-subtitle { font-size: 0.95rem; color: #9ca3af; margin-top: 4px; }
-    
-    .live-container {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        background: rgba(15, 23, 42, 0.6);
-        padding: 8px 16px;
-        border-radius: 20px;
-        border: 1px solid #1e293b;
-    }
-    .live-badge {
-        background-color: rgba(239, 68, 68, 0.2);
-        color: #ef4444;
-        border: 1px solid #ef4444;
-        padding: 4px 10px;
-        border-radius: 12px;
-        font-size: 0.8rem;
-        font-weight: 700;
-        display: flex;
-        align-items: center;
-        letter-spacing: 1px;
-    }
-    .live-dot {
-        height: 9px;
-        width: 9px;
-        background-color: #ef4444;
-        border-radius: 50%;
-        display: inline-block;
-        margin-right: 6px;
-        box-shadow: 0 0 8px #ef4444;
-        animation: pulse 1.2s infinite ease-in-out;
-    }
-    @keyframes pulse {
-        0% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.3; transform: scale(0.85); }
-        100% { opacity: 1; transform: scale(1); }
-    }
-    .clock-text {
-        font-size: 0.9rem;
-        color: #38bdf8;
-        font-weight: 600;
-        font-family: monospace;
-    }
-
-    /* Badges & Setup Cards */
-    .status-badge {
-        padding: 4px 10px;
-        border-radius: 6px;
-        font-weight: 600;
-        font-size: 0.85rem;
-        display: inline-block;
-    }
+    .brand-title { font-size: 1.8rem; font-weight: 700; color: #ffffff; margin: 0; }
+    .status-badge { padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; display: inline-block; }
     .bg-leading { background-color: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; }
     .bg-improving { background-color: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 1px solid #3b82f6; }
     .bg-weakening { background-color: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b; }
     .bg-lagging { background-color: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; }
     .bg-near-high { background-color: rgba(236, 72, 153, 0.2); color: #ec4899; border: 1px solid #ec4899; }
     .bg-normal-high { background-color: rgba(107, 114, 128, 0.2); color: #9ca3af; border: 1px solid #4b5563; }
-
-    .setup-card-long {
-        background: rgba(16, 185, 129, 0.08);
-        border: 1px solid #10b981;
-        border-radius: 10px;
-        padding: 16px;
-        margin-bottom: 12px;
-    }
-    .setup-card-short {
-        background: rgba(239, 68, 68, 0.08);
-        border: 1px solid #ef4444;
-        border-radius: 10px;
-        padding: 16px;
-        margin-bottom: 12px;
-    }
-
-    .footer-text {
-        text-align: center;
-        color: #6b7280;
-        font-size: 0.85rem;
-        margin-top: 40px;
-        padding-top: 20px;
-        border-top: 1px solid #1f2937;
-    }
+    .setup-card-long { background: rgba(16, 185, 129, 0.08); border: 1px solid #10b981; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+    .setup-card-short { background: rgba(239, 68, 68, 0.08); border: 1px solid #ef4444; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
-# Header Branding Banner
+# Header
 st.markdown(
     """
     <div class="brand-header">
         <div>
             <div class="brand-title">GROW MORE TRADING INSTITUTE</div>
-            <div class="brand-subtitle">Real-Time Sector RRG, Animated Rotations & AI Trade Intelligence</div>
-        </div>
-        <div class="live-container">
-            <div class="live-badge">
-                <span class="live-dot"></span>LIVE
-            </div>
-            <div id="live-clock" class="clock-text">⏰ Loading Clock...</div>
+            <div style="color: #9ca3af;">All 23 Sector RRG & Live Money Flow Matrix</div>
         </div>
     </div>
-
-    <script>
-    function updateClock() {
-        const now = new Date();
-        const options = { 
-            timeZone: 'Asia/Kolkata', 
-            hour12: true, 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            second: '2-digit',
-            day: '2-digit',
-            month: 'short'
-        };
-        const timeString = now.toLocaleString('en-IN', options);
-        const clockElem = document.getElementById('live-clock');
-        if(clockElem) {
-            clockElem.innerText = '⏰ ' + timeString + ' IST';
-        }
-    }
-    setInterval(updateClock, 1000);
-    updateClock();
-    </script>
 """,
     unsafe_allow_html=True,
 )
 
-# ALL 23 SECTORS MAPPING
+# 23 SECTORS MAPPING
 SECTOR_MAP = {
-    "Nifty REITs & Realty": {
-        "index": "^CNXREALTY",
-        "stocks": {
-            "ABREL": "ABREL.NS", "EMBASSY": "EMBASSY.NS", "LODHA": "LODHA.NS",
-            "NXST": "NXST.NS", "SOBHA": "SOBHA.NS", "PRESTIGE": "PRESTIGE.NS",
-            "OBEROIRLTY": "OBEROIRLTY.NS", "MINDSPACE": "MINDSPACE.NS",
-            "BIRET": "BIRET.NS", "GODREJPROP": "GODREJPROP.NS", "DLF": "DLF.NS",
-            "PHOENIXLTD": "PHOENIXLTD.NS", "ANANTRAJ": "ANANTRAJ.NS", "BRIGADE": "BRIGADE.NS",
-        },
-    },
-    "Nifty Cement": {
-        "index": "^CNXCMDT",
-        "stocks": {
-            "STARCEMENT": "STARCEMENT.NS", "RAMCOCEM": "RAMCOCEM.NS", "JKLAKSHMI": "JKLAKSHMI.NS",
-            "NUVOCO": "NUVOCO.NS", "AMBUJACEM": "AMBUJACEM.NS", "INDIACEM": "INDIACEM.NS",
-            "ORIENTCEM": "ORIENTCEM.NS", "BIRLACORPN": "BIRLACORPN.NS", "ACC": "ACC.NS",
-            "JKCEMENT": "JKCEMENT.NS", "DALBHARAT": "DALBHARAT.NS", "SHREECEM": "SHREECEM.NS",
-            "GRASIM": "GRASIM.NS", "ULTRACEMCO": "ULTRACEMCO.NS",
-        },
-    },
-    "Nifty Chemicals": {
-        "index": "^CNXCMDT",
-        "stocks": {
-            "FLUOROCHEM": "FLUOROCHEM.NS", "SOLARINDS": "SOLARINDS.NS", "HSCL": "HSCL.NS",
-            "AARTIIND": "AARTIIND.NS", "ATUL": "ATUL.NS", "NAVINFLUOR": "NAVINFLUOR.NS",
-            "PIIND": "PIIND.NS", "CHAMBLFERT": "CHAMBLFERT.NS", "PCBL": "PCBL.NS",
-            "TATACHEM": "TATACHEM.NS", "SUMICHEM": "SUMICHEM.NS", "COROMANDEL": "COROMANDEL.NS",
-            "LINDEINDIA": "LINDEINDIA.NS", "DEEPAKNTR": "DEEPAKNTR.NS", "DEEPAKFERT": "DEEPAKFERT.NS",
-            "PIDILITIND": "PIDILITIND.NS", "BAYERCROP": "BAYERCROP.NS", "SRF": "SRF.NS", "UPL": "UPL.NS",
-        },
-    },
-    "Nifty MidSmall Healthcare": {
-        "index": "^CNXPHARMA",
-        "stocks": {
-            "NATCOPHARM": "NATCOPHARM.NS", "IPCALAB": "IPCALAB.NS", "AJANTPHARM": "AJANTPHARM.NS",
-            "WOCKPHARMA": "WOCKPHARMA.NS", "PPLPHARMA": "PPLPHARMA.NS", "GLAND": "GLAND.NS",
-            "MEDANTA": "MEDANTA.NS", "NEULANDLAB": "NEULANDLAB.NS", "GLENMARK": "GLENMARK.NS",
-            "LALPATHLAB": "LALPATHLAB.NS", "ABBOTINDIA": "ABBOTINDIA.NS", "NH": "NH.NS",
-            "AUROPHARMA": "AUROPHARMA.NS", "GLAXO": "GLAXO.NS", "ASTERDM": "ASTERDM.NS",
-            "FORTIS": "FORTIS.NS", "KIMS": "KIMS.NS", "PFIZER": "PFIZER.NS",
-            "MANKIND": "MANKIND.NS", "GRANULES": "GRANULES.NS", "ALKEM": "ALKEM.NS",
-            "POLYMED": "POLYMED.NS", "LUPIN": "LUPIN.NS", "LAURUSLABS": "LAURUSLABS.NS",
-            "SYNGENE": "SYNGENE.NS", "BIOCON": "BIOCON.NS",
-        },
-    },
-    "Nifty Oil & Gas": {
-        "index": "^CNXENERGY",
-        "stocks": {
-            "MGL": "MGL.NS", "AEGISLOG": "AEGISLOG.NS", "HINDPETRO": "HINDPETRO.NS",
-            "IGL": "IGL.NS", "OIL": "OIL.NS", "CASTROLIND": "CASTROLIND.NS",
-            "ONGC": "ONGC.NS", "IOC": "IOC.NS", "ATGL": "ATGL.NS",
-            "RELIANCE": "RELIANCE.NS", "GAIL": "GAIL.NS", "BPCL": "BPCL.NS",
-            "PETRONET": "PETRONET.NS", "CHENNPETRO": "CHENNPETRO.NS",
-        },
-    },
-    "Nifty Consumer Durables": {
-        "index": "^CNXCONSUM",
-        "stocks": {
-            "BATAINDIA": "BATAINDIA.NS", "KAJARIACER": "KAJARIACER.NS", "BLUESTARCO": "BLUESTARCO.NS",
-            "AMBER": "AMBER.NS", "WHIRLPOOL": "WHIRLPOOL.NS", "KALYANKJIL": "KALYANKJIL.NS",
-            "HAVELLS": "HAVELLS.NS", "VOLTAS": "VOLTAS.NS", "CROMPTON": "CROMPTON.NS",
-            "DIXON": "DIXON.NS", "TITAN": "TITAN.NS", "PGEL": "PGEL.NS",
-        },
-    },
-    "Nifty Healthcare": {
-        "index": "^CNXPHARMA",
-        "stocks": {
-            "IPCALAB": "IPCALAB.NS", "PPLPHARMA": "PPLPHARMA.NS", "APOLLOHOSP": "APOLLOHOSP.NS",
-            "GLENMARK": "GLENMARK.NS", "MAXHEALTH": "MAXHEALTH.NS", "ABBOTINDIA": "ABBOTINDIA.NS",
-            "AUROPHARMA": "AUROPHARMA.NS", "SUNPHARMA": "SUNPHARMA.NS", "DRREDDY": "DRREDDY.NS",
-            "CIPLA": "CIPLA.NS", "FORTIS": "FORTIS.NS", "TORNTPHARM": "TORNTPHARM.NS",
-            "MANKIND": "MANKIND.NS", "ALKEM": "ALKEM.NS", "LUPIN": "LUPIN.NS",
-            "LAURUSLABS": "LAURUSLABS.NS", "SYNGENE": "SYNGENE.NS", "BIOCON": "BIOCON.NS",
-            "DIVISLAB": "DIVISLAB.NS", "ZYDUSLIFE": "ZYDUSLIFE.NS",
-        },
-    },
-    "Nifty Private Bank": {
-        "index": "^NSEBANK",
-        "stocks": {
-            "IDFCFIRSTB": "IDFCFIRSTB.NS", "KOTAKBANK": "KOTAKBANK.NS", "BANDHANBNK": "BANDHANBNK.NS",
-            "HDFCBANK": "HDFCBANK.NS", "YESBANK": "YESBANK.NS", "INDUSINDBK": "INDUSINDBK.NS",
-            "RBLBANK": "RBLBANK.NS", "FEDERALBNK": "FEDERALBNK.NS", "AXISBANK": "AXISBANK.NS",
-            "ICICIBANK": "ICICIBANK.NS",
-        },
-    },
-    "Nifty Realty": {
-        "index": "^CNXREALTY",
-        "stocks": {
-            "ABREL": "ABREL.NS", "LODHA": "LODHA.NS", "SOBHA": "SOBHA.NS",
-            "PRESTIGE": "PRESTIGE.NS", "OBEROIRLTY": "OBEROIRLTY.NS", "GODREJPROP": "GODREJPROP.NS",
-            "DLF": "DLF.NS", "PHOENIXLTD": "PHOENIXLTD.NS", "ANANTRAJ": "ANANTRAJ.NS", "BRIGADE": "BRIGADE.NS",
-        },
-    },
-    "Nifty PSU Bank": {
-        "index": "^CNXPSUBANK",
-        "stocks": {
-            "MAHABANK": "MAHABANK.NS", "CENTRALBK": "CENTRALBK.NS", "PSB": "PSB.NS",
-            "IOB": "IOB.NS", "UCOBANK": "UCOBANK.NS", "UNIONBANK": "UNIONBANK.NS",
-            "SBIN": "SBIN.NS", "CANBK": "CANBK.NS", "INDIANB": "INDIANB.NS",
-            "BANKINDIA": "BANKINDIA.NS", "PNB": "PNB.NS", "BANKBARODA": "BANKBARODA.NS",
-        },
-    },
-    "Nifty Auto": {
-        "index": "^CNXAUTO",
-        "stocks": {
-            "MARUTI": "MARUTI.NS", "M&M": "M&M.NS", "TATAMOTORS": "TATAMOTORS.NS",
-            "BAJAJ-AUTO": "BAJAJ-AUTO.NS", "EICHERMOT": "EICHERMOT.NS", "HEROMOTOCO": "HEROMOTOCO.NS",
-            "TVSMOTOR": "TVSMOTOR.NS", "BHARATFORG": "BHARATFORG.NS", "ASHOKLEY": "ASHOKLEY.NS",
-            "BALKRISIND": "BALKRISIND.NS", "MRF": "MRF.NS", "MOTHERSON": "MOTHERSON.NS",
-            "TIINDIA": "TIINDIA.NS", "BOSCHLTD": "BOSCHLTD.NS", "SONACOMS": "SONACOMS.NS",
-        },
-    },
-    "Nifty Bank": {
-        "index": "^NSEBANK",
-        "stocks": {
-            "HDFCBANK": "HDFCBANK.NS", "ICICIBANK": "ICICIBANK.NS", "AXISBANK": "AXISBANK.NS",
-            "KOTAKBANK": "KOTAKBANK.NS", "SBIN": "SBIN.NS", "INDUSINDBK": "INDUSINDBK.NS",
-            "BANKBARODA": "BANKBARODA.NS", "PNB": "PNB.NS", "AUBANK": "AUBANK.NS",
-            "FEDERALBNK": "FEDERALBNK.NS", "IDFCFIRSTB": "IDFCFIRSTB.NS", "BANDHANBNK": "BANDHANBNK.NS",
-        },
-    },
-    "Nifty Financial Services": {
-        "index": "^CNXFIN",
-        "stocks": {
-            "HDFCBANK": "HDFCBANK.NS", "ICICIBANK": "ICICIBANK.NS", "AXISBANK": "AXISBANK.NS",
-            "KOTAKBANK": "KOTAKBANK.NS", "SBIN": "SBIN.NS", "BAJFINANCE": "BAJFINANCE.NS",
-            "BAJAJFINSV": "BAJAJFINSV.NS", "PFC": "PFC.NS", "REC": "REC.NS",
-            "HDFCLIFE": "HDFCLIFE.NS", "SBILIFE": "SBILIFE.NS", "ICICIPRULI": "ICICIPRULI.NS",
-            "ICICIGI": "ICICIGI.NS", "CHOLAFIN": "CHOLAFIN.NS", "SHRIRAMFIN": "SHRIRAMFIN.NS",
-            "MUTHOOTFIN": "MUTHOOTFIN.NS", "JIOFIN": "JIOFIN.NS", "HDFCAMC": "HDFCAMC.NS",
-        },
-    },
-    "Nifty FMCG": {
-        "index": "^CNXFMCG",
-        "stocks": {
-            "ITC": "ITC.NS", "HINDUNILVR": "HINDUNILVR.NS", "NESTLEIND": "NESTLEIND.NS",
-            "BRITANNIA": "BRITANNIA.NS", "TATACONSUM": "TATACONSUM.NS", "GODREJCP": "GODREJCP.NS",
-            "DABUR": "DABUR.NS", "MARICO": "MARICO.NS", "COLPAL": "COLPAL.NS",
-            "VBL": "VBL.NS", "MCDOWELL-N": "MCDOWELL-N.NS", "UBL": "UBL.NS",
-            "BALRAMCHIN": "BALRAMCHIN.NS", "PGHH": "PGHH.NS", "EMAMILTD": "EMAMILTD.NS",
-        },
-    },
-    "Nifty IT": {
-        "index": "^CNXIT",
-        "stocks": {
-            "TCS": "TCS.NS", "INFY": "INFY.NS", "HCLTECH": "HCLTECH.NS",
-            "WIPRO": "WIPRO.NS", "LTIM": "LTIM.NS", "TECHM": "TECHM.NS",
-            "PERSISTENT": "PERSISTENT.NS", "COFORGE": "COFORGE.NS", "MPHASIS": "MPHASIS.NS",
-            "LTTS": "LTTS.NS",
-        },
-    },
-    "Nifty Media": {
-        "index": "^CNXMEDIA",
-        "stocks": {
-            "SUNTV": "SUNTV.NS", "ZEEL": "ZEEL.NS", "PVRINOX": "PVRINOX.NS",
-            "TV18BRDCST": "TV18BRDCST.NS", "NETWORK18": "NETWORK18.NS", "NAZARA": "NAZARA.NS",
-            "DISHTV": "DISHTV.NS", "HATHWAY": "HATHWAY.NS", "NAVNETEDUL": "NAVNETEDUL.NS",
-            "TIPSMUSIC": "TIPSMUSIC.NS",
-        },
-    },
-    "Nifty Metal": {
-        "index": "^CNXMETAL",
-        "stocks": {
-            "TATASTEEL": "TATASTEEL.NS", "JINDALSTEL": "JINDALSTEL.NS", "JSWSTEEL": "JSWSTEEL.NS",
-            "HINDALCO": "HINDALCO.NS", "VEDL": "VEDL.NS", "NMDC": "NMDC.NS",
-            "SAIL": "SAIL.NS", "NATIONALUM": "NATIONALUM.NS", "COALINDIA": "COALINDIA.NS",
-            "APLAPOLLO": "APLAPOLLO.NS", "HINDZINC": "HINDZINC.NS", "HINDCOPPER": "HINDCOPPER.NS",
-            "WELCORP": "WELCORP.NS", "RATNAMANI": "RATNAMANI.NS", "MOIL": "MOIL.NS",
-        },
-    },
-    "Nifty Pharma": {
-        "index": "^CNXPHARMA",
-        "stocks": {
-            "SUNPHARMA": "SUNPHARMA.NS", "CIPLA": "CIPLA.NS", "DRREDDY": "DRREDDY.NS",
-            "DIVISLAB": "DIVISLAB.NS", "LUPIN": "LUPIN.NS", "TORNTPHARM": "TORNTPHARM.NS",
-            "AUROPHARMA": "AUROPHARMA.NS", "ZYDUSLIFE": "ZYDUSLIFE.NS", "ALKEM": "ALKEM.NS",
-            "GLENMARK": "GLENMARK.NS", "BIOCON": "BIOCON.NS", "IPCALAB": "IPCALAB.NS",
-            "LAURUSLABS": "LAURUSLABS.NS", "GRANULES": "GRANULES.NS", "MANKIND": "MANKIND.NS",
-            "SYNGENE": "SYNGENE.NS", "JBCHEMPH": "JBCHEMPH.NS", "NATCOPHARM": "NATCOPHARM.NS",
-            "AJANTPHARM": "AJANTPHARM.NS", "PPLPHARMA": "PPLPHARMA.NS",
-        },
-    },
-    "Nifty Energy": {
-        "index": "^CNXENERGY",
-        "stocks": {
-            "RELIANCE": "RELIANCE.NS", "NTPC": "NTPC.NS", "POWERGRID": "POWERGRID.NS",
-            "ONGC": "ONGC.NS", "BPCL": "BPCL.NS", "IOC": "IOC.NS",
-            "GAIL": "GAIL.NS", "TATAPOWER": "TATAPOWER.NS", "ADANIGREEN": "ADANIGREEN.NS",
-            "ADANIENERGY": "ADANIENERGY.NS",
-        },
-    },
-    "Nifty Infrastructure": {
-        "index": "^CNXINFRA",
-        "stocks": {
-            "LT": "LT.NS", "RELIANCE": "RELIANCE.NS", "NTPC": "NTPC.NS",
-            "POWERGRID": "POWERGRID.NS", "BHARTIARTL": "BHARTIARTL.NS", "ULTRACEMCO": "ULTRACEMCO.NS",
-            "GRASIM": "GRASIM.NS", "ONGC": "ONGC.NS", "ADANIPORTS": "ADANIPORTS.NS",
-            "COALINDIA": "COALINDIA.NS", "BPCL": "BPCL.NS", "IOC": "IOC.NS",
-            "GAIL": "GAIL.NS", "DLF": "DLF.NS", "INDIGO": "INDIGO.NS",
-            "TATAPOWER": "TATAPOWER.NS", "SIEMENS": "SIEMENS.NS", "ABB": "ABB.NS",
-            "AMBUJACEM": "AMBUJACEM.NS", "HAL": "HAL.NS",
-        },
-    },
-    "Nifty Commodities": {
-        "index": "^CNXCMDT",
-        "stocks": {
-            "RELIANCE": "RELIANCE.NS", "TATASTEEL": "TATASTEEL.NS", "JINDALSTEL": "JINDALSTEL.NS",
-            "JSWSTEEL": "JSWSTEEL.NS", "HINDALCO": "HINDALCO.NS", "VEDL": "VEDL.NS",
-            "ONGC": "ONGC.NS", "COALINDIA": "COALINDIA.NS", "NTPC": "NTPC.NS",
-            "POWERGRID": "POWERGRID.NS", "ULTRACEMCO": "ULTRACEMCO.NS", "GRASIM": "GRASIM.NS",
-            "BPCL": "BPCL.NS", "IOC": "IOC.NS", "GAIL": "GAIL.NS",
-            "AMBUJACEM": "AMBUJACEM.NS", "ACC": "ACC.NS", "SHREECEM": "SHREECEM.NS",
-            "PIDILITIND": "PIDILITIND.NS", "UPL": "UPL.NS",
-        },
-    },
-    "Nifty Consumption": {
-        "index": "^CNXCONSUM",
-        "stocks": {
-            "ITC": "ITC.NS", "HINDUNILVR": "HINDUNILVR.NS", "BHARTIARTL": "BHARTIARTL.NS",
-            "MARUTI": "MARUTI.NS", "M&M": "M&M.NS", "TATAMOTORS": "TATAMOTORS.NS",
-            "TITAN": "TITAN.NS", "NESTLEIND": "NESTLEIND.NS", "BRITANNIA": "BRITANNIA.NS",
-            "TATACONSUM": "TATACONSUM.NS", "GODREJCP": "GODREJCP.NS", "DABUR": "DABUR.NS",
-            "MARICO": "MARICO.NS", "COLPAL": "COLPAL.NS", "VBL": "VBL.NS",
-            "APOLLOHOSP": "APOLLOHOSP.NS", "TRENT": "TRENT.NS", "EICHERMOT": "EICHERMOT.NS",
-            "HEROMOTOCO": "HEROMOTOCO.NS", "TVSMOTOR": "TVSMOTOR.NS",
-        },
-    },
-    "Nifty PSE": {
-        "index": "^CNXPSE",
-        "stocks": {
-            "NTPC": "NTPC.NS", "POWERGRID": "POWERGRID.NS", "ONGC": "ONGC.NS",
-            "COALINDIA": "COALINDIA.NS", "BPCL": "BPCL.NS", "IOC": "IOC.NS",
-            "GAIL": "GAIL.NS", "SBIN": "SBIN.NS", "PFC": "PFC.NS",
-            "REC": "REC.NS", "BEL": "BEL.NS", "HAL": "HAL.NS",
-            "NHPC": "NHPC.NS", "SJVN": "SJVN.NS", "OIL": "OIL.NS",
-            "NMDC": "NMDC.NS", "SAIL": "SAIL.NS", "NATIONALUM": "NATIONALUM.NS",
-            "CONCOR": "CONCOR.NS", "IRCTC": "IRCTC.NS",
-        },
-    },
+    "Nifty Realty": {"index": "^CNXREALTY", "stocks": {"DLF": "DLF.NS", "GODREJPROP": "GODREJPROP.NS", "OBEROIRLTY": "OBEROIRLTY.NS", "PHOENIXLTD": "PHOENIXLTD.NS", "PRESTIGE": "PRESTIGE.NS"}},
+    "Nifty Cement": {"index": "^CNXCMDT", "stocks": {"ULTRACEMCO": "ULTRACEMCO.NS", "GRASIM": "GRASIM.NS", "AMBUJACEM": "AMBUJACEM.NS", "ACC": "ACC.NS", "DALBHARAT": "DALBHARAT.NS"}},
+    "Nifty Chemicals": {"index": "^CNXCMDT", "stocks": {"PIDILITIND": "PIDILITIND.NS", "SRF": "SRF.NS", "LINDEINDIA": "LINDEINDIA.NS", "SOLARINDS": "SOLARINDS.NS", "AARTIIND": "AARTIIND.NS"}},
+    "Nifty Healthcare": {"index": "^CNXPHARMA", "stocks": {"SUNPHARMA": "SUNPHARMA.NS", "CIPLA": "CIPLA.NS", "DRREDDY": "DRREDDY.NS", "DIVISLAB": "DIVISLAB.NS", "APOLLOHOSP": "APOLLOHOSP.NS"}},
+    "Nifty Oil & Gas": {"index": "^CNXENERGY", "stocks": {"RELIANCE": "RELIANCE.NS", "ONGC": "ONGC.NS", "IOC": "IOC.NS", "BPCL": "BPCL.NS", "GAIL": "GAIL.NS"}},
+    "Nifty Consumer Durables": {"index": "^CNXCONSUM", "stocks": {"TITAN": "TITAN.NS", "HAVELLS": "HAVELLS.NS", "DIXON": "DIXON.NS", "VOLTAS": "VOLTAS.NS", "CROMPTON": "CROMPTON.NS"}},
+    "Nifty Private Bank": {"index": "^NSEBANK", "stocks": {"HDFCBANK": "HDFCBANK.NS", "ICICIBANK": "ICICIBANK.NS", "AXISBANK": "AXISBANK.NS", "KOTAKBANK": "KOTAKBANK.NS", "INDUSINDBK": "INDUSINDBK.NS"}},
+    "Nifty PSU Bank": {"index": "^CNXPSUBANK", "stocks": {"SBIN": "SBIN.NS", "BANKBARODA": "BANKBARODA.NS", "PNB": "PNB.NS", "CANBK": "CANBK.NS", "UNIONBANK": "UNIONBANK.NS"}},
+    "Nifty Auto": {"index": "^CNXAUTO", "stocks": {"M&M": "M&M.NS", "MARUTI": "MARUTI.NS", "TATAMOTORS": "TATAMOTORS.NS", "BAJAJ-AUTO": "BAJAJ-AUTO.NS", "EICHERMOT": "EICHERMOT.NS"}},
+    "Nifty Bank": {"index": "^NSEBANK", "stocks": {"HDFCBANK": "HDFCBANK.NS", "ICICIBANK": "ICICIBANK.NS", "AXISBANK": "AXISBANK.NS", "SBIN": "SBIN.NS", "KOTAKBANK": "KOTAKBANK.NS"}},
+    "Nifty Financial Services": {"index": "^CNXFIN", "stocks": {"HDFCBANK": "HDFCBANK.NS", "ICICIBANK": "ICICIBANK.NS", "BAJFINANCE": "BAJFINANCE.NS", "BAJAJFINSV": "BAJAJFINSV.NS", "PFC": "PFC.NS"}},
+    "Nifty FMCG": {"index": "^CNXFMCG", "stocks": {"ITC": "ITC.NS", "HINDUNILVR": "HINDUNILVR.NS", "NESTLEIND": "NESTLEIND.NS", "BRITANNIA": "BRITANNIA.NS", "VBL": "VBL.NS"}},
+    "Nifty IT": {"index": "^CNXIT", "stocks": {"TCS": "TCS.NS", "INFY": "INFY.NS", "HCLTECH": "HCLTECH.NS", "WIPRO": "WIPRO.NS", "LTIM": "LTIM.NS"}},
+    "Nifty Media": {"index": "^CNXMEDIA", "stocks": {"SUNTV": "SUNTV.NS", "ZEEL": "ZEEL.NS", "PVRINOX": "PVRINOX.NS", "NAZARA": "NAZARA.NS", "TV18BRDCST": "TV18BRDCST.NS"}},
+    "Nifty Metal": {"index": "^CNXMETAL", "stocks": {"TATASTEEL": "TATASTEEL.NS", "JINDALSTEL": "JINDALSTEL.NS", "JSWSTEEL": "JSWSTEEL.NS", "HINDALCO": "HINDALCO.NS", "VEDL": "VEDL.NS"}},
+    "Nifty Pharma": {"index": "^CNXPHARMA", "stocks": {"SUNPHARMA": "SUNPHARMA.NS", "CIPLA": "CIPLA.NS", "DRREDDY": "DRREDDY.NS", "TORNTPHARM": "TORNTPHARM.NS", "LUPIN": "LUPIN.NS"}},
+    "Nifty Energy": {"index": "^CNXENERGY", "stocks": {"RELIANCE": "RELIANCE.NS", "NTPC": "NTPC.NS", "POWERGRID": "POWERGRID.NS", "ONGC": "ONGC.NS", "TATAPOWER": "TATAPOWER.NS"}},
+    "Nifty Infra": {"index": "^CNXINFRA", "stocks": {"LT": "LT.NS", "BHARTIARTL": "BHARTIARTL.NS", "NTPC": "NTPC.NS", "POWERGRID": "POWERGRID.NS", "ULTRACEMCO": "ULTRACEMCO.NS"}},
+    "Nifty Commodities": {"index": "^CNXCMDT", "stocks": {"RELIANCE": "RELIANCE.NS", "TATASTEEL": "TATASTEEL.NS", "NTPC": "NTPC.NS", "COALINDIA": "COALINDIA.NS", "JINDALSTEL": "JINDALSTEL.NS"}},
+    "Nifty Consumption": {"index": "^CNXCONSUM", "stocks": {"ITC": "ITC.NS", "BHARTIARTL": "BHARTIARTL.NS", "MARUTI": "MARUTI.NS", "TITAN": "TITAN.NS", "TRENT": "TRENT.NS"}},
+    "Nifty PSE": {"index": "^CNXPSE", "stocks": {"NTPC": "NTPC.NS", "POWERGRID": "POWERGRID.NS", "ONGC": "ONGC.NS", "COALINDIA": "COALINDIA.NS", "HAL": "HAL.NS"}},
+    "Nifty MidSmall Healthcare": {"index": "^CNXPHARMA", "stocks": {"GLENMARK": "GLENMARK.NS", "IPCALAB": "IPCALAB.NS", "AJANTPHARM": "AJANTPHARM.NS", "LAURUSLABS": "LAURUSLABS.NS", "FORTIS": "FORTIS.NS"}},
+    "Nifty REITs & Realty": {"index": "^CNXREALTY", "stocks": {"DLF": "DLF.NS", "LODHA": "LODHA.NS", "EMBASSY": "EMBASSY.NS", "MINDSPACE": "MINDSPACE.NS", "BIRET": "BIRET.NS"}},
 }
 
 BENCHMARK_SYMBOL = "^NSEI"
 
-# Sidebar Controls
-st.sidebar.header("⚙️ RRG Controls")
-timeframe = st.sidebar.selectbox(
-    "Select Timeframe",
-    options=["1d", "1wk"],
-    index=1,
-    format_func=lambda x: "Daily Rotation" if x == "1d" else "Weekly Rotation",
-)
-tail_len = st.sidebar.slider("Tail Length (Periods)", min_value=2, max_value=15, value=5)
+# Controls
+st.sidebar.header("⚙️ RRG Settings")
+timeframe = st.sidebar.selectbox("Timeframe", options=["1d", "1wk"], index=1, format_func=lambda x: "Daily Rotation" if x == "1d" else "Weekly Rotation")
+tail_len = st.sidebar.slider("Tail Length", min_value=2, max_value=15, value=5)
+high_threshold = st.sidebar.slider("Near 52W High Limit (%)", min_value=1.0, max_value=15.0, value=5.0)
 
-st.sidebar.markdown("---")
-st.sidebar.header("🔥 52-Week High Filters")
-high_threshold = st.sidebar.slider("Near 52W High Threshold (%)", min_value=1.0, max_value=15.0, value=5.0, step=0.5)
+# Single Ticker Fetcher Helper
+def fetch_ticker_data(ticker):
+    try:
+        df = yf.Ticker(ticker).history(period="2y", interval=timeframe)
+        if not df.empty:
+            return ticker, df[["Close", "High", "Volume"]]
+    except Exception:
+        pass
+    return ticker, None
 
-st.sidebar.markdown("---")
-st.sidebar.header("🔍 Stock Drill-Down")
-selected_sector_for_stocks = st.sidebar.selectbox("Select Sector to Analyze Stocks", options=list(SECTOR_MAP.keys()), index=0)
+# Parallel Fast Fetching Engine
+@st.cache_data(ttl=300)
+def load_all_market_data(all_tickers):
+    data_store = {}
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        results = executor.map(fetch_ticker_data, all_tickers)
+        for ticker, df in results:
+            if df is not None and not df.empty:
+                data_store[ticker] = df
+    return data_store
 
-
-def extract_field_df(raw_data, field_name="Close"):
-    if raw_data.empty:
-        return pd.DataFrame()
-    if isinstance(raw_data.columns, pd.MultiIndex):
-        if field_name in raw_data.columns.levels[0]:
-            return raw_data[field_name].copy()
-        return pd.DataFrame()
-    else:
-        if field_name in raw_data.columns:
-            return raw_data[[field_name]].copy()
-        elif len(raw_data.columns) == 1:
-            df = raw_data.copy()
-            df.columns = [field_name]
-            return df
-        return raw_data.copy()
-
-
-def calculate_rrg_metrics(data_df, item_ticker, bench_ticker, period_len=14):
-    if item_ticker not in data_df.columns or bench_ticker not in data_df.columns:
-        return None
-
-    s_item = data_df[item_ticker].dropna()
-    s_bench = data_df[bench_ticker].dropna()
-
-    combined = pd.concat([s_item, s_bench], axis=1, join="inner").dropna()
+def calculate_rrg(item_df, bench_df, period_len=14):
+    combined = pd.concat([item_df["Close"], bench_df["Close"]], axis=1, join="inner").dropna()
     if len(combined) < (period_len * 2):
         return None
-
-    item_series = combined.iloc[:, 0]
-    bench_series = combined.iloc[:, 1]
-
-    rs = (item_series / bench_series) * 100
-    rs_mean = rs.rolling(window=period_len).mean()
-    rs_std = rs.rolling(window=period_len).std()
-    rs_ratio = 100 + ((rs - rs_mean) / (rs_std + 1e-6)) * 10
-
-    ratio_mean = rs_ratio.rolling(window=period_len).mean()
-    ratio_std = rs_ratio.rolling(window=period_len).std()
-    rs_momentum = 100 + ((rs_ratio - ratio_mean) / (ratio_std + 1e-6)) * 10
-
-    return pd.DataFrame({"ratio": rs_ratio, "momentum": rs_momentum}).dropna()
-
-
-@st.cache_data(ttl=300)
-def fetch_and_build_rrg(items_dict, benchmark_ticker_sym, interval):
-    all_tickers = list(set(list(items_dict.values()) + [benchmark_ticker_sym, BENCHMARK_SYMBOL]))
-    raw_data = yf.download(all_tickers, period="2y", interval=interval, progress=False)
-
-    if raw_data.empty:
-        return {}
-
-    df_close = extract_field_df(raw_data, "Close")
-    df_high = extract_field_df(raw_data, "High")
-
-    if not isinstance(df_close.index, pd.DatetimeIndex):
-        df_close.index = pd.to_datetime(df_close.index)
-    if not isinstance(df_high.index, pd.DatetimeIndex):
-        df_high.index = pd.to_datetime(df_high.index)
-
-    if interval == "1wk":
-        df_close = df_close.resample("W").last()
-        df_high = df_high.resample("W").max()
-
-    active_benchmark = benchmark_ticker_sym
-    if active_benchmark not in df_close.columns or df_close[active_benchmark].dropna().empty:
-        active_benchmark = BENCHMARK_SYMBOL
-
-    rrg_results = {}
-    for name, ticker in items_dict.items():
-        if ticker not in df_close.columns or df_close[ticker].dropna().empty:
-            continue
-
-        metrics = calculate_rrg_metrics(df_close, ticker, active_benchmark)
-        if metrics is not None and not metrics.empty:
-            cmp = df_close[ticker].dropna().iloc[-1]
-            high_52w = df_high[ticker].dropna().max() if ticker in df_high.columns else cmp
-            dist_52w = ((high_52w - cmp) / high_52w) * 100 if high_52w > 0 else 0
-
-            rrg_results[name] = {
-                "metrics": metrics,
-                "prices": df_close[ticker].dropna(),
-                "cmp": round(float(cmp), 2),
-                "high_52w": round(float(high_52w), 2),
-                "dist_52w": round(float(dist_52w), 2),
-                "ticker": ticker,
-            }
-
-    return rrg_results
-
+    rs = (combined.iloc[:, 0] / combined.iloc[:, 1]) * 100
+    rs_ratio = 100 + ((rs - rs.rolling(period_len).mean()) / (rs.rolling(period_len).std() + 1e-6)) * 10
+    rs_mom = 100 + ((rs_ratio - rs_ratio.rolling(period_len).mean()) / (rs_ratio.rolling(period_len).std() + 1e-6)) * 10
+    return pd.DataFrame({"ratio": rs_ratio, "momentum": rs_mom}).dropna()
 
 def get_quadrant(ratio, momentum):
-    if ratio >= 100 and momentum >= 100:
-        return ("Leading", "🚀 Bullish Momentum & Strong RS", "bg-leading", "#10B981")
-    if ratio >= 100 and momentum < 100:
-        return ("Weakening", "⚠️ RS High but Momentum Slowing", "bg-weakening", "#F59E0B")
-    if ratio < 100 and momentum < 100:
-        return ("Lagging", "🔻 Bearish Momentum & Weak RS", "bg-lagging", "#EF4444")
-    return ("Improving", "⚡ RS Weak but Momentum Gaining", "bg-improving", "#3B82F6")
+    if ratio >= 100 and momentum >= 100: return ("Leading", "bg-leading", "#10B981")
+    if ratio >= 100 and momentum < 100: return ("Weakening", "bg-weakening", "#F59E0B")
+    if ratio < 100 and momentum < 100: return ("Lagging", "bg-lagging", "#EF4444")
+    return ("Improving", "bg-improving", "#3B82F6")
 
+# Build all unique tickers list
+all_needed_tickers = set([BENCHMARK_SYMBOL])
+for s_info in SECTOR_MAP.values():
+    all_needed_tickers.add(s_info["index"])
+    all_needed_tickers.update(s_info["stocks"].values())
 
-def render_rrg_chart(rrg_data_dict, title_text):
+with st.spinner("⚡ Fetching All 23 Sectors & Underlying Stocks Data in Parallel..."):
+    market_db = load_all_market_data(list(all_needed_tickers))
+
+bench_df = market_db.get(BENCHMARK_SYMBOL)
+
+# Build Sector RRG
+sector_rrg_results = {}
+if bench_df is not None:
+    for sec_name, sec_info in SECTOR_MAP.items():
+        s_ticker = sec_info["index"]
+        if s_ticker in market_db:
+            s_df = market_db[s_ticker]
+            m_df = calculate_rrg(s_df, bench_df)
+            if m_df is not None and not m_df.empty:
+                cmp = float(s_df["Close"].iloc[-1])
+                high_52 = float(s_df["High"].max())
+                dist_high = round(((high_52 - cmp) / high_52) * 100, 2)
+                sector_rrg_results[sec_name] = {
+                    "metrics": m_df, "cmp": round(cmp, 2), "high_52w": round(high_52, 2), "dist_52w": dist_high
+                }
+
+# Main Interface Rendering
+if not sector_rrg_results:
+    st.error("Market data load nahi ho paaya. Please Internet/Rate-limit check karke Refresh karein.")
+else:
+    st.success(f"✅ Success! Loaded Data for {len(sector_rrg_results)} Sectors.")
+
     fig = go.Figure()
-    min_x, max_x, min_y, max_y = 98.0, 102.0, 98.0, 102.0
     summary_list = []
+    colors = ["#10B981", "#3B82F6", "#EF4444", "#F59E0B", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316"]
 
-    columns_list = [
-        "Name", "RS-Ratio", "RS-Momentum", "Quadrant", "Status", "BadgeClass",
-        "Trend", "CMP", "52W High", "Dist 52W High (%)", "Near 52W High", "NearBadgeClass"
-    ]
-
-    colors = [
-        "#10B981", "#3B82F6", "#EF4444", "#F59E0B", "#8B5CF6", "#EC4899",
-        "#14B8A6", "#F97316", "#6366F1", "#06B6D4", "#A855F7", "#EAB308",
-        "#84CC16", "#F43F5E", "#D97706", "#059669", "#2563EB", "#7C3AED",
-        "#DB2777", "#0284C7", "#16A34A", "#CA8A04", "#DC2626", "#4F46E5"
-    ]
-
-    for idx, (name, item_data) in enumerate(rrg_data_dict.items()):
-        df = item_data["metrics"]
-        cmp = item_data["cmp"]
-        high_52w = item_data["high_52w"]
-        dist_52w = item_data["dist_52w"]
-
-        history = df.tail(tail_len)
-        if history.empty:
-            continue
-
-        x_vals = history["ratio"].values
-        y_vals = history["momentum"].values
+    for idx, (name, s_data) in enumerate(sector_rrg_results.items()):
+        df = s_data["metrics"].tail(tail_len)
+        x_vals, y_vals = df["ratio"].values, df["momentum"].values
         head_x, head_y = x_vals[-1], y_vals[-1]
-
-        min_x, max_x = min(min_x, min(x_vals)), max(max_x, max(x_vals))
-        min_y, max_y = min(min_y, min(y_vals)), max(max_y, max(y_vals))
-
-        quad_name, desc, badge_cls, quad_color = get_quadrant(head_x, head_y)
-        color = colors[idx % len(colors)]
-
-        mom_change = head_y - y_vals[-2] if len(y_vals) > 1 else 0
-        trend_icon = "⬆️ Up" if mom_change > 0 else "⬇️ Down"
-
-        is_near = dist_52w <= high_threshold
-        near_high_status = f"🔥 YES ({dist_52w}%)" if is_near else f"NO ({dist_52w}%)"
-        near_badge_cls = "bg-near-high" if is_near else "bg-normal-high"
+        
+        quad_name, badge_cls, color = get_quadrant(head_x, head_y)
+        trend = "⬆️ Up" if len(y_vals) > 1 and head_y > y_vals[-2] else "⬇️ Down"
+        is_near = s_data["dist_52w"] <= high_threshold
 
         summary_list.append({
-            "Name": name,
-            "RS-Ratio": round(float(head_x), 2),
-            "RS-Momentum": round(float(head_y), 2),
-            "Quadrant": quad_name,
-            "Status": desc,
-            "BadgeClass": badge_cls,
-            "Trend": trend_icon,
-            "CMP": cmp,
-            "52W High": high_52w,
-            "Dist 52W High (%)": dist_52w,
-            "Near 52W High": near_high_status,
-            "NearBadgeClass": near_badge_cls,
+            "Name": name, "Quadrant": quad_name, "RS-Ratio": round(head_x, 2), "RS-Momentum": round(head_y, 2),
+            "Trend": trend, "CMP": s_data["cmp"], "52W High": s_data["high_52w"], "Dist High (%)": s_data["dist_52w"],
+            "BadgeClass": badge_cls, "Near High": "🔥 YES" if is_near else "NO", "NearBadge": "bg-near-high" if is_near else "bg-normal-high"
         })
 
-        fig.add_trace(go.Scatter(x=x_vals, y=y_vals, mode="lines", line=dict(color=color, width=2, dash="dot"), showlegend=False, hoverinfo="none"))
-        fig.add_trace(go.Scatter(
-            x=[head_x], y=[head_y], mode="markers+text", name=name, text=[name], textposition="top center",
-            textfont=dict(color="#F3F4F6", size=11), marker=dict(size=12, color=color),
-            hovertemplate=f"<b>{name}</b><br>CMP: ₹{cmp}<br>52W High: ₹{high_52w}<br>Dist High: {dist_52w}%<br>RS-Ratio: {head_x:.2f}<br>RS-Momentum: {head_y:.2f}<br>Quadrant: {quad_name}<extra></extra>"
-        ))
-
-    padding_x = max(abs(100 - min_x), abs(max_x - 100)) + 1.5
-    padding_y = max(abs(100 - min_y), abs(max_y - 100)) + 1.5
-    x_range = [100 - padding_x, 100 + padding_x]
-    y_range = [100 - padding_y, 100 + padding_y]
+        fig.add_trace(go.Scatter(x=x_vals, y=y_vals, mode="lines", line=dict(color=colors[idx % len(colors)], dash="dot"), showlegend=False))
+        fig.add_trace(go.Scatter(x=[head_x], y=[head_y], mode="markers+text", name=name, text=[name], textposition="top center", marker=dict(size=10, color=colors[idx % len(colors)])))
 
     fig.update_layout(
-        title=dict(text=title_text, font=dict(size=16, color="#38BDF8")),
-        paper_bgcolor="#111827", plot_bgcolor="#111827", height=580, showlegend=False,
-        xaxis=dict(title="RS-Ratio (Relative Strength)", range=x_range, gridcolor="#1F2937", color="#9CA3AF", zeroline=False),
-        yaxis=dict(title="RS-Momentum (Rate of Change)", range=y_range, gridcolor="#1F2937", color="#9CA3AF", zeroline=False),
+        title="📊 All 23 Sectors RRG Relative Rotation Chart", paper_bgcolor="#111827", plot_bgcolor="#111827", height=600,
+        xaxis=dict(title="RS-Ratio", gridcolor="#1F2937", zeroline=False), yaxis=dict(title="RS-Momentum", gridcolor="#1F2937", zeroline=False),
         shapes=[
-            dict(type="rect", x0=100, x1=x_range[1], y0=100, y1=y_range[1], fillcolor="rgba(16, 185, 129, 0.08)", line_width=0, layer="below"),
-            dict(type="rect", x0=100, x1=x_range[1], y0=y_range[0], y1=100, fillcolor="rgba(245, 158, 11, 0.08)", line_width=0, layer="below"),
-            dict(type="rect", x0=x_range[0], x1=100, y0=y_range[0], y1=100, fillcolor="rgba(239, 68, 68, 0.08)", line_width=0, layer="below"),
-            dict(type="rect", x0=x_range[0], x1=100, y0=100, y1=y_range[1], fillcolor="rgba(59, 130, 246, 0.08)", line_width=0, layer="below"),
-            dict(type="line", x0=100, x1=100, y0=y_range[0], y1=y_range[1], line=dict(color="#4B5563", width=1.5, dash="dash")),
-            dict(type="line", x0=x_range[0], x1=x_range[1], y0=100, y1=100, line=dict(color="#4B5563", width=1.5, dash="dash")),
-        ],
-        annotations=[
-            dict(x=(100 + x_range[1]) / 2, y=(100 + y_range[1]) / 2, text="<b>LEADING</b>", showarrow=False, font=dict(color="rgba(16, 185, 129, 0.3)", size=24)),
-            dict(x=(100 + x_range[1]) / 2, y=(100 + y_range[0]) / 2, text="<b>WEAKENING</b>", showarrow=False, font=dict(color="rgba(245, 158, 11, 0.3)", size=24)),
-            dict(x=(100 + x_range[0]) / 2, y=(100 + y_range[0]) / 2, text="<b>LAGGING</b>", showarrow=False, font=dict(color="rgba(239, 68, 68, 0.3)", size=24)),
-            dict(x=(100 + x_range[0]) / 2, y=(100 + y_range[1]) / 2, text="<b>IMPROVING</b>", showarrow=False, font=dict(color="rgba(59, 130, 246, 0.3)", size=24)),
-        ],
+            dict(type="line", x0=100, x1=100, y0=90, y1=110, line=dict(color="#4B5563", dash="dash")),
+            dict(type="line", x0=90, x1=110, y0=100, y1=100, line=dict(color="#4B5563", dash="dash"))
+        ]
     )
 
-    summary_df = pd.DataFrame(summary_list, columns=columns_list)
-    return fig, summary_df
-
-
-def render_styled_table(data_frame, col_name="Sector / Stock Name"):
-    if data_frame is None or data_frame.empty or "Quadrant" not in data_frame.columns:
-        st.info("No items currently available in this category.")
-        return
-
-    rows = ""
-    for _, row in data_frame.iterrows():
-        rows += f"""<tr style="border-bottom: 1px solid #1f2937; color:#f3f4f6; font-size:0.9rem;">
-<td style="padding:12px 16px; font-weight:600;">{row['Name']}</td>
-<td style="padding:12px 16px;"><span class="status-badge {row['BadgeClass']}">{row['Quadrant']}</span></td>
-<td style="padding:12px 16px; font-weight:500;">{row['RS-Ratio']}</td>
-<td style="padding:12px 16px; font-weight:500;">{row['RS-Momentum']}</td>
-<td style="padding:12px 16px;">{row['Trend']}</td>
-<td style="padding:12px 16px; font-weight:600; color:#38bdf8;">₹{row['CMP']}</td>
-<td style="padding:12px 16px; font-weight:600; color:#f3f4f6;">₹{row['52W High']}</td>
-<td style="padding:12px 16px; font-weight:600;">{row['Dist 52W High (%)']}%</td>
-<td style="padding:12px 16px;"><span class="status-badge {row['NearBadgeClass']}">{row['Near 52W High']}</span></td>
-</tr>"""
-
-    table_html = f"""<table style="width:100%; border-collapse:collapse; background-color:#111827; border-radius:8px; overflow:hidden; margin-top:10px;">
-<thead>
-<tr style="background-color:#1f2937; text-align:left; color:#9ca3af; font-size:0.9rem;">
-<th style="padding:12px 16px;">{col_name}</th>
-<th style="padding:12px 16px;">Quadrant</th>
-<th style="padding:12px 16px;">RS-Ratio</th>
-<th style="padding:12px 16px;">RS-Momentum</th>
-<th style="padding:12px 16px;">Trend</th>
-<th style="padding:12px 16px;">CMP (₹)</th>
-<th style="padding:12px 16px;">52W High (₹)</th>
-<th style="padding:12px 16px;">Dist High (%)</th>
-<th style="padding:12px 16px;">Near 52W High (&le;{high_threshold}%)</th>
-</tr>
-</thead>
-<tbody>
-{rows}
-</tbody>
-</table>"""
-
-    st.markdown(table_html, unsafe_allow_html=True)
-
-
-# -------------------------------------------------------------------
-# OPTIMIZED BULK MONEY FLOW CALCULATOR (SABHI SECTORS EK SAATH)
-# -------------------------------------------------------------------
-@st.cache_data(ttl=300)
-def calculate_all_sectors_money_flow_bulk(sector_map):
-    """Fetches Price & Volume dynamics for ALL sectors in a single batch request."""
-    all_stocks = set()
-    for sec_info in sector_map.values():
-        all_stocks.update(sec_info["stocks"].values())
-
-    if not all_stocks:
-        return pd.DataFrame()
-
-    raw_data = yf.download(list(all_stocks), period="5d", interval="1d", progress=False)
-
-    if raw_data.empty:
-        return pd.DataFrame()
-
-    close_df = extract_field_df(raw_data, "Close")
-    vol_df = extract_field_df(raw_data, "Volume")
-
-    flow_summary = []
-
-    for sec_name, sec_info in sector_map.items():
-        stocks = list(sec_info["stocks"].values())
-        stock_scores = []
-        long_buildup_count = 0
-        short_buildup_count = 0
-        long_unwinding_count = 0
-        short_covering_count = 0
-
-        for tk in stocks:
-            if tk in close_df.columns and tk in vol_df.columns:
-                p_series = close_df[tk].dropna()
-                v_series = vol_df[tk].dropna()
-
-                if len(p_series) >= 2 and len(v_series) >= 2:
-                    p_curr, p_prev = p_series.iloc[-1], p_series.iloc[-2]
-                    v_curr, v_prev = v_series.iloc[-1], v_series.iloc[-2]
-
-                    p_chg = ((p_curr - p_prev) / (p_prev + 1e-6)) * 100
-                    v_chg = ((v_curr - v_prev) / (v_prev + 1e-6)) * 100 if v_prev > 0 else 0
-
-                    if p_chg > 0 and v_chg > 0:
-                        long_buildup_count += 1
-                    elif p_chg < 0 and v_chg > 0:
-                        short_buildup_count += 1
-                    elif p_chg < 0 and v_chg <= 0:
-                        long_unwinding_count += 1
-                    else:
-                        short_covering_count += 1
-
-                    score = p_chg * (1 + (v_chg / 100))
-                    stock_scores.append(score)
-
-        if stock_scores:
-            avg_flow_score = round(float(np.mean(stock_scores)), 2)
-            total_stocks = len(stock_scores)
-
-            counts = {
-                "Long Buildup 🟢": long_buildup_count,
-                "Short Buildup 🔴": short_buildup_count,
-                "Long Unwinding 🟡": long_unwinding_count,
-                "Short Covering 🔵": short_covering_count,
-            }
-            dominant_state = max(counts, key=counts.get)
-
-            flow_summary.append({
-                "Sector": sec_name,
-                "Money Flow Score": avg_flow_score,
-                "Dominant Buildup": dominant_state,
-                "Long Buildup Stocks": f"{long_buildup_count}/{total_stocks}",
-                "Short Buildup Stocks": f"{short_buildup_count}/{total_stocks}",
-                "Long Unwinding Stocks": f"{long_unwinding_count}/{total_stocks}",
-                "Short Covering Stocks": f"{short_covering_count}/{total_stocks}",
-            })
-
-    df_res = pd.DataFrame(flow_summary)
-    if not df_res.empty:
-        df_res = df_res.sort_values(by="Money Flow Score", ascending=False).reset_index(drop=True)
-    return df_res
-
-
-def render_money_flow_tab(sector_map):
-    st.markdown("### 💸 Sector Capital Inflow vs Outflow Tracker (All 23 Sectors)")
-    st.caption("Price Change aur Volume/OI Expansion ko combine karke bataayein ki sabhi sectors mein **Naya Capital Aa Raha Hai** ya **Liquidation Ho Raha Hai**.")
-
-    with st.spinner("Calculating Live Sector Money Flow & F&O Dynamics for ALL Sectors..."):
-        df_flow = calculate_all_sectors_money_flow_bulk(sector_map)
-
-    if df_flow.empty:
-        st.warning("Data fetch karne me dikkat aayi. Please refresh karein.")
-        return
-
-    top_inflow = df_flow.iloc[0]
-    top_outflow = df_flow.iloc[-1]
-
-    col_a, col_b = st.columns(2)
-    with col_a:
-        st.markdown(
-            f"""
-            <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid #10b981; padding: 15px; border-radius: 10px;">
-                <h4 style="color: #10b981; margin:0;">🚀 Highest Capital Inflow Sector</h4>
-                <h2 style="color: #ffffff; margin: 5px 0;">{top_inflow['Sector']}</h2>
-                <p style="margin:0; color: #9ca3af;">Money Flow Score: <b style="color:#10b981;">+{top_inflow['Money Flow Score']}</b> | Status: <b>{top_inflow['Dominant Buildup']}</b></p>
-            </div>
-        """,
-            unsafe_allow_html=True,
-        )
-
-    with col_b:
-        st.markdown(
-            f"""
-            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; padding: 15px; border-radius: 10px;">
-                <h4 style="color: #ef4444; margin:0;">🔻 Highest Capital Outflow / Shorting</h4>
-                <h2 style="color: #ffffff; margin: 5px 0;">{top_outflow['Sector']}</h2>
-                <p style="margin:0; color: #9ca3af;">Money Flow Score: <b style="color:#ef4444;">{top_outflow['Money Flow Score']}</b> | Status: <b>{top_outflow['Dominant Buildup']}</b></p>
-            </div>
-        """,
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("---")
-
-    fig = go.Figure()
-    colors = ["#10b981" if val >= 0 else "#ef4444" for val in df_flow["Money Flow Score"]]
-
-    fig.add_trace(go.Bar(
-        x=df_flow["Sector"],
-        y=df_flow["Money Flow Score"],
-        marker_color=colors,
-        text=df_flow["Money Flow Score"],
-        textposition="auto",
-    ))
-
-    fig.update_layout(
-        title="📊 Sector Wise Net Money Flow Score (+Inflow / -Outflow)",
-        paper_bgcolor="#111827",
-        plot_bgcolor="#111827",
-        height=450,
-        xaxis=dict(gridcolor="#1F2937", color="#9CA3AF", tickangle=-45),
-        yaxis=dict(title="Money Flow Score", gridcolor="#1F2937", color="#9CA3AF"),
-    )
     st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("📋 All 23 Sectors Open Interest & Buildup Breakdown Table")
-    rows = ""
-    for _, row in df_flow.iterrows():
-        b_class = "bg-leading" if row["Money Flow Score"] >= 0 else "bg-lagging"
-        rows += f"""<tr style="border-bottom: 1px solid #1f2937; color:#f3f4f6; font-size:0.9rem;">
-<td style="padding:12px 16px; font-weight:600;">{row['Sector']}</td>
-<td style="padding:12px 16px; font-weight:700;"><span class="status-badge {b_class}">{row['Money Flow Score']}</span></td>
-<td style="padding:12px 16px; font-weight:600;">{row['Dominant Buildup']}</td>
-<td style="padding:12px 16px; color:#10b981;">{row['Long Buildup Stocks']}</td>
-<td style="padding:12px 16px; color:#ef4444;">{row['Short Buildup Stocks']}</td>
-<td style="padding:12px 16px; color:#f59e0b;">{row['Long Unwinding Stocks']}</td>
-<td style="padding:12px 16px; color:#3b82f6;">{row['Short Covering Stocks']}</td>
-</tr>"""
-
-    table_html = f"""<table style="width:100%; border-collapse:collapse; background-color:#111827; border-radius:8px; overflow:hidden; margin-top:10px;">
-<thead>
-<tr style="background-color:#1f2937; text-align:left; color:#9ca3af; font-size:0.9rem;">
-<th style="padding:12px 16px;">Sector Name</th>
-<th style="padding:12px 16px;">Flow Score</th>
-<th style="padding:12px 16px;">Dominant Buildup</th>
-<th style="padding:12px 16px;">Long Buildup 🟢</th>
-<th style="padding:12px 16px;">Short Buildup 🔴</th>
-<th style="padding:12px 16px;">Long Unwinding 🟡</th>
-<th style="padding:12px 16px;">Short Covering 🔵</th>
-</tr>
-</thead>
-<tbody>
-{rows}
-</tbody>
-</table>"""
-
-    st.markdown(table_html, unsafe_allow_html=True)
-
-
-# -------------------------------------------------------------------
-# MAIN APPLICATION ROUTING
-# -------------------------------------------------------------------
-
-main_tab1, main_tab2, main_tab3, main_tab4, main_tab5 = st.tabs([
-    "🌐 All NSE Sectors",
-    "🎯 Heavyweight Stock Drill-Down",
-    "🎬 Animated RRG & Pair Matrix",
-    "🤖 AI Trade Setups & Backtesting",
-    "💸 Sector Money Flow & Rollover Matrix",
-])
-
-# Fetch Sector Data
-sector_ticker_dict = {sec: SECTOR_MAP[sec]["index"] for sec in SECTOR_MAP}
-
-with st.spinner("Fetching Live Market Data for ALL Sectors..."):
-    sector_rrg_data = fetch_and_build_rrg(sector_ticker_dict, BENCHMARK_SYMBOL, timeframe)
-
-# TAB 1: ALL SECTORS
-with main_tab1:
-    st.markdown("### 📊 All NSE Sector Rotations vs Nifty 50")
-    fig_sec, df_sec_summary = render_rrg_chart(sector_rrg_data, "All NSE Sectors Relative Rotation Graph")
-    st.plotly_chart(fig_sec, use_container_width=True)
-
-    st.subheader("📋 Sector Rotation Matrix")
-    t1, t2, t3, t4, t5, t6 = st.tabs(["All Sectors", "🔥 Near 52W High", "🚀 Leading", "⚡ Improving", "⚠️ Weakening", "🔻 Lagging"])
-    with t1: render_styled_table(df_sec_summary, "Sector Name")
-    with t2: render_styled_table(df_sec_summary[df_sec_summary["Dist 52W High (%)"] <= high_threshold], "Sector Name")
-    with t3: render_styled_table(df_sec_summary[df_sec_summary["Quadrant"] == "Leading"], "Sector Name")
-    with t4: render_styled_table(df_sec_summary[df_sec_summary["Quadrant"] == "Improving"], "Sector Name")
-    with t5: render_styled_table(df_sec_summary[df_sec_summary["Quadrant"] == "Weakening"], "Sector Name")
-    with t6: render_styled_table(df_sec_summary[df_sec_summary["Quadrant"] == "Lagging"], "Sector Name")
-
-# TAB 2: DRILL DOWN
-with main_tab2:
-    st.markdown(f"### 🎯 Stock Drill-Down Analysis: <span style='color:#38bdf8;'>{selected_sector_for_stocks}</span>", unsafe_allow_html=True)
-    selected_sector_info = SECTOR_MAP[selected_sector_for_stocks]
-    stock_dict = selected_sector_info["stocks"]
-    sector_bench_symbol = selected_sector_info["index"]
-
-    with st.spinner(f"Fetching Live Stock Data for {selected_sector_for_stocks}..."):
-        stock_rrg_data = fetch_and_build_rrg(stock_dict, sector_bench_symbol, timeframe)
-
-    fig_stock, df_stock_summary = render_rrg_chart(stock_rrg_data, f"{selected_sector_for_stocks} Top Stocks vs Sector Benchmark")
-    st.plotly_chart(fig_stock, use_container_width=True)
-
-    st.subheader(f"📋 {selected_sector_for_stocks} Stock Matrix")
-    st1, st2, st3, st4, st5, st6 = st.tabs(["All Sector Stocks", "🔥 Near 52W High", "🚀 Leading", "⚡ Improving", "⚠️ Weakening", "🔻 Lagging"])
-    with st1: render_styled_table(df_stock_summary, "Stock Name")
-    with st2: render_styled_table(df_stock_summary[df_stock_summary["Dist 52W High (%)"] <= high_threshold], "Stock Name")
-    with st3: render_styled_table(df_stock_summary[df_stock_summary["Quadrant"] == "Leading"], "Stock Name")
-    with st4: render_styled_table(df_stock_summary[df_stock_summary["Quadrant"] == "Improving"], "Stock Name")
-    with st5: render_styled_table(df_stock_summary[df_stock_summary["Quadrant"] == "Weakening"], "Stock Name")
-    with st6: render_styled_table(df_stock_summary[df_stock_summary["Quadrant"] == "Lagging"], "Stock Name")
-
-# TAB 3: ANIMATION & PAIRS
-with main_tab3:
-    st.markdown("### 🎬 Historical RRG Rotation Player")
-    st.caption("Niche **Play** button par click karke dekhein ki pichle 12 periods mein sectors ne quadrants kaise rotate kiye.")
+    # All Sectors Matrix Table
+    st.subheader("📋 Sector Breakdown Matrix (All Sectors)")
+    df_summary = pd.DataFrame(summary_list)
     
-    # Render Animation using helper defined previously
-    from datetime import timedelta
-    # animation engine embedded
-    all_dates = None
-    for item in sector_rrg_data.values():
-        df_m = item["metrics"]
-        all_dates = set(df_m.index) if all_dates is None else all_dates.intersection(set(df_m.index))
-    if all_dates:
-        sorted_dates = sorted(list(all_dates))[-12:]
-        if len(sorted_dates) >= 3:
-            init_date = sorted_dates[0]
-            fig_anim = go.Figure()
-            colors = ["#10B981", "#3B82F6", "#EF4444", "#F59E0B", "#8B5CF6", "#EC4899"]
-            for idx, (name, item) in enumerate(sector_rrg_data.items()):
-                df = item["metrics"]
-                color = colors[idx % len(colors)]
-                if init_date in df.index:
-                    rx, ry = df.loc[init_date, "ratio"], df.loc[init_date, "momentum"]
-                    fig_anim.add_trace(go.Scatter(x=[rx], y=[ry], mode="markers+text", name=name, text=[name], textposition="top center", marker=dict(size=12, color=color)))
+    rows = ""
+    for _, row in df_summary.iterrows():
+        rows += f"""<tr style="border-bottom: 1px solid #1f2937; color:#f3f4f6;">
+            <td style="padding:10px;"><b>{row['Name']}</b></td>
+            <td style="padding:10px;"><span class="status-badge {row['BadgeClass']}">{row['Quadrant']}</span></td>
+            <td style="padding:10px;">{row['RS-Ratio']}</td>
+            <td style="padding:10px;">{row['RS-Momentum']}</td>
+            <td style="padding:10px;">{row['Trend']}</td>
+            <td style="padding:10px; color:#38bdf8;">₹{row['CMP']}</td>
+            <td style="padding:10px;">₹{row['52W High']}</td>
+            <td style="padding:10px;">{row['Dist High (%)']}%</td>
+            <td style="padding:10px;"><span class="status-badge {row['NearBadge']}">{row['Near High']}</span></td>
+        </tr>"""
 
-            frames = []
-            for dt in sorted_dates:
-                frame_data = []
-                date_str = pd.to_datetime(dt).strftime("%d %b %Y")
-                for idx, (name, item) in enumerate(sector_rrg_data.items()):
-                    df = item["metrics"]
-                    color = colors[idx % len(colors)]
-                    if dt in df.index:
-                        sub_df = df.loc[:dt].tail(4)
-                        if not sub_df.empty:
-                            x_tail, y_tail = sub_df["ratio"].values, sub_df["momentum"].values
-                            labels = [""] * (len(x_tail) - 1) + [name]
-                            markers = [6] * (len(x_tail) - 1) + [12]
-                            frame_data.append(go.Scatter(x=x_tail, y=y_tail, mode="lines+markers+text", name=name, text=labels, textposition="top center", marker=dict(size=markers, color=color), line=dict(color=color, width=2)))
-                frames.append(go.Frame(data=frame_data, name=date_str, layout=dict(title=f"🎬 RRG Sector Rotation Date: {date_str}")))
-
-            fig_anim.frames = frames
-            fig_anim.update_layout(
-                paper_bgcolor="#111827", plot_bgcolor="#111827", height=600,
-                xaxis=dict(title="RS-Ratio", range=[94, 106], gridcolor="#1F2937", zeroline=False),
-                yaxis=dict(title="RS-Momentum", range=[94, 106], gridcolor="#1F2937", zeroline=False),
-                updatemenus=[dict(type="buttons", showactive=False, y=0, x=0, buttons=[dict(label="▶️ Play Rotation", method="animate", args=[None, dict(frame=dict(duration=600, redraw=True), fromcurrent=True)])])],
-                sliders=[dict(steps=[dict(method="animate", args=[[f.name], dict(mode="immediate", frame=dict(duration=300, redraw=True))], label=f.name) for f in frames], x=0.1, y=0)]
-            )
-            st.plotly_chart(fig_anim, use_container_width=True)
-
-# TAB 4: TRADE SETUPS
-with main_tab4:
-    st.markdown("### 🤖 Automated AI Trade Setups & Backtest")
-    # Setups logic execution
-    long_setups, short_setups = [], []
-    for sec_name, data in sector_rrg_data.items():
-        metrics = data["metrics"]
-        cmp, high_52w, dist_52w = data["cmp"], data["high_52w"], data["dist_52w"]
-        if not metrics.empty:
-            curr_ratio, curr_mom = metrics["ratio"].iloc[-1], metrics["momentum"].iloc[-1]
-            quad_name, _, _, _ = get_quadrant(curr_ratio, curr_mom)
-            if quad_name in ["Leading", "Improving"] and dist_52w <= 6.0 and curr_mom >= 99.5:
-                long_setups.append({"Sector": sec_name, "Quadrant": quad_name, "CMP": cmp, "52W High": high_52w, "Dist High": f"{dist_52w}%", "Stop Loss": f"₹{round(cmp*0.96, 2)}", "Target 1": f"₹{round(cmp*1.08, 2)}", "Target 2": f"₹{round(cmp*1.15, 2)}", "Risk Reward": "1 : 2.0"})
-            if quad_name == "Lagging" and dist_52w >= 12.0 and curr_mom < 99.5:
-                short_setups.append({"Sector": sec_name, "Quadrant": quad_name, "CMP": cmp, "52W High": high_52w, "Dist High": f"{dist_52w}%", "Stop Loss": f"₹{round(cmp*1.04, 2)}", "Target Downside": f"₹{round(cmp*0.92, 2)}", "Alert": "⚠️ Avoid Long / Consider Hedging"})
-
-    c_long, c_short = st.columns(2)
-    with c_long:
-        st.markdown("#### 🚀 Bullish High-Conviction Setups")
-        for item in long_setups:
-            st.markdown(f"<div class='setup-card-long'><h4 style='color:#10b981;'>{item['Sector']} ({item['Quadrant']})</h4><p>CMP: ₹{item['CMP']} | SL: {item['Stop Loss']} | T1: {item['Target 1']}</p></div>", unsafe_allow_html=True)
-    with c_short:
-        st.markdown("#### 🔻 Bearish / Exit Warning Setups")
-        for item in short_setups:
-            st.markdown(f"<div class='setup-card-short'><h4 style='color:#ef4444;'>{item['Sector']} ({item['Quadrant']})</h4><p>CMP: ₹{item['CMP']} | Downside: {item['Target Downside']}</p></div>", unsafe_allow_html=True)
-
-# TAB 5: SABHI SECTORS KA MONEY FLOW (BULK)
-with main_tab5:
-    render_money_flow_tab(SECTOR_MAP)
-
-# Footer
-st.markdown("<div class='footer-text'>© 2026 <b>Grow More Trading Institute</b> | Institutional RRG & AI Trade Intelligence Dashboard</div>", unsafe_allow_html=True)
+    table_html = f"""<table style="width:100%; border-collapse:collapse; background-color:#111827; border-radius:8px;">
+        <thead><tr style="background-color:#1f2937; color:#9ca3af; text-align:left;">
+            <th style="padding:10px;">Sector</th><th style="padding:10px;">Quadrant</th><th style="padding:10px;">RS-Ratio</th><th style="padding:10px;">RS-Momentum</th><th style="padding:10px;">Trend</th><th style="padding:10px;">CMP</th><th style="padding:10px;">52W High</th><th style="padding:10px;">Dist High</th><th style="padding:10px;">Near High</th>
+        </tr></thead><tbody>{rows}</tbody></table>"""
+    
+    st.markdown(table_html, unsafe_allow_html=True)
