@@ -32,8 +32,6 @@ st.markdown(
     .bg-lagging { background-color: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; }
     .bg-near-high { background-color: rgba(236, 72, 153, 0.2); color: #ec4899; border: 1px solid #ec4899; }
     .bg-normal-high { background-color: rgba(107, 114, 128, 0.2); color: #9ca3af; border: 1px solid #4b5563; }
-    .setup-card-long { background: rgba(16, 185, 129, 0.08); border: 1px solid #10b981; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
-    .setup-card-short { background: rgba(239, 68, 68, 0.08); border: 1px solid #ef4444; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
     </style>
 """,
     unsafe_allow_html=True,
@@ -52,31 +50,31 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# 23 SECTORS MAPPING
+# 23 SECTORS MAPPING WITH RELIABLE ETFs / LEADING STOCKS AS REPRESENTATIVE
 SECTOR_MAP = {
-    "Nifty Realty": {"index": "^CNXREALTY", "stocks": {"DLF": "DLF.NS", "GODREJPROP": "GODREJPROP.NS", "OBEROIRLTY": "OBEROIRLTY.NS", "PHOENIXLTD": "PHOENIXLTD.NS", "PRESTIGE": "PRESTIGE.NS"}},
-    "Nifty Cement": {"index": "^CNXCMDT", "stocks": {"ULTRACEMCO": "ULTRACEMCO.NS", "GRASIM": "GRASIM.NS", "AMBUJACEM": "AMBUJACEM.NS", "ACC": "ACC.NS", "DALBHARAT": "DALBHARAT.NS"}},
-    "Nifty Chemicals": {"index": "^CNXCMDT", "stocks": {"PIDILITIND": "PIDILITIND.NS", "SRF": "SRF.NS", "LINDEINDIA": "LINDEINDIA.NS", "SOLARINDS": "SOLARINDS.NS", "AARTIIND": "AARTIIND.NS"}},
-    "Nifty Healthcare": {"index": "^CNXPHARMA", "stocks": {"SUNPHARMA": "SUNPHARMA.NS", "CIPLA": "CIPLA.NS", "DRREDDY": "DRREDDY.NS", "DIVISLAB": "DIVISLAB.NS", "APOLLOHOSP": "APOLLOHOSP.NS"}},
-    "Nifty Oil & Gas": {"index": "^CNXENERGY", "stocks": {"RELIANCE": "RELIANCE.NS", "ONGC": "ONGC.NS", "IOC": "IOC.NS", "BPCL": "BPCL.NS", "GAIL": "GAIL.NS"}},
-    "Nifty Consumer Durables": {"index": "^CNXCONSUM", "stocks": {"TITAN": "TITAN.NS", "HAVELLS": "HAVELLS.NS", "DIXON": "DIXON.NS", "VOLTAS": "VOLTAS.NS", "CROMPTON": "CROMPTON.NS"}},
-    "Nifty Private Bank": {"index": "^NSEBANK", "stocks": {"HDFCBANK": "HDFCBANK.NS", "ICICIBANK": "ICICIBANK.NS", "AXISBANK": "AXISBANK.NS", "KOTAKBANK": "KOTAKBANK.NS", "INDUSINDBK": "INDUSINDBK.NS"}},
-    "Nifty PSU Bank": {"index": "^CNXPSUBANK", "stocks": {"SBIN": "SBIN.NS", "BANKBARODA": "BANKBARODA.NS", "PNB": "PNB.NS", "CANBK": "CANBK.NS", "UNIONBANK": "UNIONBANK.NS"}},
-    "Nifty Auto": {"index": "^CNXAUTO", "stocks": {"M&M": "M&M.NS", "MARUTI": "MARUTI.NS", "TATAMOTORS": "TATAMOTORS.NS", "BAJAJ-AUTO": "BAJAJ-AUTO.NS", "EICHERMOT": "EICHERMOT.NS"}},
-    "Nifty Bank": {"index": "^NSEBANK", "stocks": {"HDFCBANK": "HDFCBANK.NS", "ICICIBANK": "ICICIBANK.NS", "AXISBANK": "AXISBANK.NS", "SBIN": "SBIN.NS", "KOTAKBANK": "KOTAKBANK.NS"}},
-    "Nifty Financial Services": {"index": "^CNXFIN", "stocks": {"HDFCBANK": "HDFCBANK.NS", "ICICIBANK": "ICICIBANK.NS", "BAJFINANCE": "BAJFINANCE.NS", "BAJAJFINSV": "BAJAJFINSV.NS", "PFC": "PFC.NS"}},
-    "Nifty FMCG": {"index": "^CNXFMCG", "stocks": {"ITC": "ITC.NS", "HINDUNILVR": "HINDUNILVR.NS", "NESTLEIND": "NESTLEIND.NS", "BRITANNIA": "BRITANNIA.NS", "VBL": "VBL.NS"}},
-    "Nifty IT": {"index": "^CNXIT", "stocks": {"TCS": "TCS.NS", "INFY": "INFY.NS", "HCLTECH": "HCLTECH.NS", "WIPRO": "WIPRO.NS", "LTIM": "LTIM.NS"}},
-    "Nifty Media": {"index": "^CNXMEDIA", "stocks": {"SUNTV": "SUNTV.NS", "ZEEL": "ZEEL.NS", "PVRINOX": "PVRINOX.NS", "NAZARA": "NAZARA.NS", "TV18BRDCST": "TV18BRDCST.NS"}},
-    "Nifty Metal": {"index": "^CNXMETAL", "stocks": {"TATASTEEL": "TATASTEEL.NS", "JINDALSTEL": "JINDALSTEL.NS", "JSWSTEEL": "JSWSTEEL.NS", "HINDALCO": "HINDALCO.NS", "VEDL": "VEDL.NS"}},
-    "Nifty Pharma": {"index": "^CNXPHARMA", "stocks": {"SUNPHARMA": "SUNPHARMA.NS", "CIPLA": "CIPLA.NS", "DRREDDY": "DRREDDY.NS", "TORNTPHARM": "TORNTPHARM.NS", "LUPIN": "LUPIN.NS"}},
-    "Nifty Energy": {"index": "^CNXENERGY", "stocks": {"RELIANCE": "RELIANCE.NS", "NTPC": "NTPC.NS", "POWERGRID": "POWERGRID.NS", "ONGC": "ONGC.NS", "TATAPOWER": "TATAPOWER.NS"}},
-    "Nifty Infra": {"index": "^CNXINFRA", "stocks": {"LT": "LT.NS", "BHARTIARTL": "BHARTIARTL.NS", "NTPC": "NTPC.NS", "POWERGRID": "POWERGRID.NS", "ULTRACEMCO": "ULTRACEMCO.NS"}},
-    "Nifty Commodities": {"index": "^CNXCMDT", "stocks": {"RELIANCE": "RELIANCE.NS", "TATASTEEL": "TATASTEEL.NS", "NTPC": "NTPC.NS", "COALINDIA": "COALINDIA.NS", "JINDALSTEL": "JINDALSTEL.NS"}},
-    "Nifty Consumption": {"index": "^CNXCONSUM", "stocks": {"ITC": "ITC.NS", "BHARTIARTL": "BHARTIARTL.NS", "MARUTI": "MARUTI.NS", "TITAN": "TITAN.NS", "TRENT": "TRENT.NS"}},
-    "Nifty PSE": {"index": "^CNXPSE", "stocks": {"NTPC": "NTPC.NS", "POWERGRID": "POWERGRID.NS", "ONGC": "ONGC.NS", "COALINDIA": "COALINDIA.NS", "HAL": "HAL.NS"}},
-    "Nifty MidSmall Healthcare": {"index": "^CNXPHARMA", "stocks": {"GLENMARK": "GLENMARK.NS", "IPCALAB": "IPCALAB.NS", "AJANTPHARM": "AJANTPHARM.NS", "LAURUSLABS": "LAURUSLABS.NS", "FORTIS": "FORTIS.NS"}},
-    "Nifty REITs & Realty": {"index": "^CNXREALTY", "stocks": {"DLF": "DLF.NS", "LODHA": "LODHA.NS", "EMBASSY": "EMBASSY.NS", "MINDSPACE": "MINDSPACE.NS", "BIRET": "BIRET.NS"}},
+    "Nifty Realty": "DLF.NS",
+    "Nifty Cement": "ULTRACEMCO.NS",
+    "Nifty Chemicals": "PIDILITIND.NS",
+    "Nifty Healthcare": "SUNPHARMA.NS",
+    "Nifty Oil & Gas": "RELIANCE.NS",
+    "Nifty Consumer Durables": "TITAN.NS",
+    "Nifty Private Bank": "HDFCBANK.NS",
+    "Nifty PSU Bank": "SBIN.NS",
+    "Nifty Auto": "M&M.NS",
+    "Nifty Bank": "BANKBEES.NS",
+    "Nifty Financial Services": "BAJFINANCE.NS",
+    "Nifty FMCG": "ITC.NS",
+    "Nifty IT": "TCS.NS",
+    "Nifty Media": "SUNTV.NS",
+    "Nifty Metal": "TATASTEEL.NS",
+    "Nifty Pharma": "CIPLA.NS",
+    "Nifty Energy": "NTPC.NS",
+    "Nifty Infra": "LT.NS",
+    "Nifty Commodities": "COALINDIA.NS",
+    "Nifty Consumption": "HINDUNILVR.NS",
+    "Nifty PSE": "POWERGRID.NS",
+    "Nifty MidSmall Healthcare": "GLENMARK.NS",
+    "Nifty REITs & Realty": "GODREJPROP.NS",
 }
 
 BENCHMARK_SYMBOL = "^NSEI"
@@ -87,17 +85,16 @@ timeframe = st.sidebar.selectbox("Timeframe", options=["1d", "1wk"], index=1, fo
 tail_len = st.sidebar.slider("Tail Length", min_value=2, max_value=15, value=5)
 high_threshold = st.sidebar.slider("Near 52W High Limit (%)", min_value=1.0, max_value=15.0, value=5.0)
 
-# Single Ticker Fetcher Helper
+# Fetcher Function
 def fetch_ticker_data(ticker):
     try:
         df = yf.Ticker(ticker).history(period="2y", interval=timeframe)
         if not df.empty:
-            return ticker, df[["Close", "High", "Volume"]]
+            return ticker, df[["Close", "High"]]
     except Exception:
         pass
     return ticker, None
 
-# Parallel Fast Fetching Engine
 @st.cache_data(ttl=300)
 def load_all_market_data(all_tickers):
     data_store = {}
@@ -118,27 +115,21 @@ def calculate_rrg(item_df, bench_df, period_len=14):
     return pd.DataFrame({"ratio": rs_ratio, "momentum": rs_mom}).dropna()
 
 def get_quadrant(ratio, momentum):
-    if ratio >= 100 and momentum >= 100: return ("Leading", "bg-leading", "#10B981")
-    if ratio >= 100 and momentum < 100: return ("Weakening", "bg-weakening", "#F59E0B")
-    if ratio < 100 and momentum < 100: return ("Lagging", "bg-lagging", "#EF4444")
-    return ("Improving", "bg-improving", "#3B82F6")
+    if ratio >= 100 and momentum >= 100: return ("Leading", "bg-leading")
+    if ratio >= 100 and momentum < 100: return ("Weakening", "bg-weakening")
+    if ratio < 100 and momentum < 100: return ("Lagging", "bg-lagging")
+    return ("Improving", "bg-improving")
 
-# Build all unique tickers list
-all_needed_tickers = set([BENCHMARK_SYMBOL])
-for s_info in SECTOR_MAP.values():
-    all_needed_tickers.add(s_info["index"])
-    all_needed_tickers.update(s_info["stocks"].values())
-
-with st.spinner("⚡ Fetching All 23 Sectors & Underlying Stocks Data in Parallel..."):
-    market_db = load_all_market_data(list(all_needed_tickers))
+# Fetch Data
+all_tickers = [BENCHMARK_SYMBOL] + list(SECTOR_MAP.values())
+with st.spinner("⚡ Fetching All 23 Sectors Data..."):
+    market_db = load_all_market_data(all_tickers)
 
 bench_df = market_db.get(BENCHMARK_SYMBOL)
 
-# Build Sector RRG
 sector_rrg_results = {}
 if bench_df is not None:
-    for sec_name, sec_info in SECTOR_MAP.items():
-        s_ticker = sec_info["index"]
+    for sec_name, s_ticker in SECTOR_MAP.items():
         if s_ticker in market_db:
             s_df = market_db[s_ticker]
             m_df = calculate_rrg(s_df, bench_df)
@@ -150,22 +141,25 @@ if bench_df is not None:
                     "metrics": m_df, "cmp": round(cmp, 2), "high_52w": round(high_52, 2), "dist_52w": dist_high
                 }
 
-# Main Interface Rendering
 if not sector_rrg_results:
-    st.error("Market data load nahi ho paaya. Please Internet/Rate-limit check karke Refresh karein.")
+    st.error("Market data fetch nahi hua. Please Refresh karein.")
 else:
     st.success(f"✅ Success! Loaded Data for {len(sector_rrg_results)} Sectors.")
 
     fig = go.Figure()
     summary_list = []
-    colors = ["#10B981", "#3B82F6", "#EF4444", "#F59E0B", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316"]
+    colors = [
+        "#10B981", "#3B82F6", "#EF4444", "#F59E0B", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316",
+        "#06B6D4", "#A855F7", "#6366F1", "#84CC16", "#EAB308", "#F43F5E", "#D946EF", "#64748B",
+        "#22C55E", "#0284C7", "#E11D48", "#7C3AED", "#059669", "#D97706", "#4F46E5"
+    ]
 
     for idx, (name, s_data) in enumerate(sector_rrg_results.items()):
         df = s_data["metrics"].tail(tail_len)
         x_vals, y_vals = df["ratio"].values, df["momentum"].values
         head_x, head_y = x_vals[-1], y_vals[-1]
         
-        quad_name, badge_cls, color = get_quadrant(head_x, head_y)
+        quad_name, badge_cls = get_quadrant(head_x, head_y)
         trend = "⬆️ Up" if len(y_vals) > 1 and head_y > y_vals[-2] else "⬇️ Down"
         is_near = s_data["dist_52w"] <= high_threshold
 
@@ -176,21 +170,21 @@ else:
         })
 
         fig.add_trace(go.Scatter(x=x_vals, y=y_vals, mode="lines", line=dict(color=colors[idx % len(colors)], dash="dot"), showlegend=False))
-        fig.add_trace(go.Scatter(x=[head_x], y=[head_y], mode="markers+text", name=name, text=[name], textposition="top center", marker=dict(size=10, color=colors[idx % len(colors)])))
+        fig.add_trace(go.Scatter(x=[head_x], y=[head_y], mode="markers+text", name=name, text=[name], textposition="top center", marker=dict(size=9, color=colors[idx % len(colors)])))
 
     fig.update_layout(
-        title="📊 All 23 Sectors RRG Relative Rotation Chart", paper_bgcolor="#111827", plot_bgcolor="#111827", height=600,
+        title="📊 All 23 Sectors RRG Relative Rotation Chart", paper_bgcolor="#111827", plot_bgcolor="#111827", height=650,
         xaxis=dict(title="RS-Ratio", gridcolor="#1F2937", zeroline=False), yaxis=dict(title="RS-Momentum", gridcolor="#1F2937", zeroline=False),
         shapes=[
-            dict(type="line", x0=100, x1=100, y0=90, y1=110, line=dict(color="#4B5563", dash="dash")),
-            dict(type="line", x0=90, x1=110, y0=100, y1=100, line=dict(color="#4B5563", dash="dash"))
+            dict(type="line", x0=100, x1=100, y0=85, y1=115, line=dict(color="#4B5563", dash="dash")),
+            dict(type="line", x0=85, x1=115, y0=100, y1=100, line=dict(color="#4B5563", dash="dash"))
         ]
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
-    # All Sectors Matrix Table
-    st.subheader("📋 Sector Breakdown Matrix (All Sectors)")
+    # Matrix Table
+    st.subheader("📋 Sector Breakdown Matrix (All 23 Sectors)")
     df_summary = pd.DataFrame(summary_list)
     
     rows = ""
